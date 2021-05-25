@@ -30,7 +30,6 @@ public class SimpleTimerService implements TimerService {
 
     public SimpleTimerService(InternalTimerService<VoidNamespace> internalTimerService) {
         this.internalTimerService = internalTimerService;
-        System.out.println("test");
     }
 
     @Override
