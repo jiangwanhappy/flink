@@ -78,7 +78,7 @@ public class IntervalJoinFunction extends RichFlatJoinFunction<RowData, RowData,
             }
         }
         if (joinCondition.apply(first, second)) {
-            out.collect(reusedJoinRowData.replace(first, second));
+            out.collect(reusedJoinRowData.replace(first, second));//输出join后的数据
         }
     }
 

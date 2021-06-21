@@ -27,8 +27,8 @@ import org.apache.flink.util.Collector;
  */
 class EmitAwareCollector implements Collector<RowData> {
 
-    private boolean emitted = false;
-    private Collector<RowData> innerCollector;
+    private boolean emitted = false;//标识是否已经发送到下游
+    private Collector<RowData> innerCollector;//用于输出数据的Collector
 
     void reset() {
         emitted = false;

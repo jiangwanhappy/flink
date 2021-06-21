@@ -118,7 +118,7 @@ public abstract class AbstractStreamOperator<OUT>
      * scope keyed state to a key. This is null if the operator is not a keyed operator.
      *
      * <p>This is for elements from the first input.
-     */
+     *///一般是左流的（即第一个输入流的）的keyselector
     private transient KeySelector<?, ?> stateKeySelector1;
 
     /**
@@ -126,9 +126,9 @@ public abstract class AbstractStreamOperator<OUT>
      * scope keyed state to a key. This is null if the operator is not a keyed operator.
      *
      * <p>This is for elements from the second input.
-     */
+     *///一般是右流的（即第二个输入流的）的keyselector
     private transient KeySelector<?, ?> stateKeySelector2;
-
+//保存当前key
     private transient StreamOperatorStateHandler stateHandler;
 
     private transient InternalTimeServiceManager<?> timeServiceManager;
@@ -148,7 +148,7 @@ public abstract class AbstractStreamOperator<OUT>
 
     // We keep track of watermarks from both inputs, the combined input is the minimum
     // Once the minimum advances we emit a new watermark for downstream operators
-    private long combinedWatermark = Long.MIN_VALUE;
+    private long combinedWatermark = Long.MIN_VALUE;//为左右流中的较小者（即input1Watermark，input2Watermark中的小者），当大于之前的combinedWatermark，才发送此次的combinedWatermark
     private long input1Watermark = Long.MIN_VALUE;
     private long input2Watermark = Long.MIN_VALUE;
 

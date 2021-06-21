@@ -46,11 +46,11 @@ public class KeyedCoProcessOperator<K, IN1, IN2, OUT>
         implements TwoInputStreamOperator<IN1, IN2, OUT>, Triggerable<K, VoidNamespace> {
 
     private static final long serialVersionUID = 1L;
-
+//有output和StreamRecord
     private transient TimestampedCollector<OUT> collector;
-
+//有属性TimerService和StreamRecord
     private transient ContextImpl<K, IN1, IN2, OUT> context;
-
+//有属性TimerService和触发的timer和timeDomain（标明是event触发还是processing触发）
     private transient OnTimerContextImpl<K, IN1, IN2, OUT> onTimerContext;
 
     public KeyedCoProcessOperator(KeyedCoProcessFunction<K, IN1, IN2, OUT> keyedCoProcessFunction) {
@@ -86,7 +86,7 @@ public class KeyedCoProcessOperator<K, IN1, IN2, OUT>
         userFunction.processElement2(element.getValue(), context, collector);
         context.element = null;
     }
-
+//参数 是watermark触发的timer
     @Override
     public void onEventTime(InternalTimer<K, VoidNamespace> timer) throws Exception {
         collector.setAbsoluteTimestamp(timer.getTimestamp());

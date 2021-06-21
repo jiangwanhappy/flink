@@ -298,7 +298,7 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 
         while ((timer = eventTimeTimersQueue.peek()) != null && timer.getTimestamp() <= time) {
             eventTimeTimersQueue.poll();
-            keyContext.setCurrentKey(timer.getKey());
+            keyContext.setCurrentKey(timer.getKey());//设置触发的timer的key为key
             triggerTarget.onEventTime(timer);
         }
     }

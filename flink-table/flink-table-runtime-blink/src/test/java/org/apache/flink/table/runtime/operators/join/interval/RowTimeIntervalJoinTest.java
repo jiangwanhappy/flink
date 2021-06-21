@@ -166,7 +166,7 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
         assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
         testHarness.close();
     }
-
+//此方法看完
     @Test
     public void testRowTimeLeftOuterJoin() throws Exception {
         RowTimeIntervalJoin joinProcessFunc =
@@ -185,17 +185,17 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 
         // The left row with timestamp = 1 will be padded and removed (14=1+5+1+((5+9)/2)).
         testHarness.processWatermark1(new Watermark(14));
-        testHarness.processWatermark2(new Watermark(14));
+        testHarness.processWatermark2(new Watermark(14));//输出左流过期数据（1,k1,null,null；time：14是被触发的timer的时间） 和watermarkdelay 5（14是此次watermark的时间-9）
         assertEquals(1, testHarness.numEventTimeTimers());
         assertEquals(2, testHarness.numKeyedStateEntries());
 
         // The right row with timestamp = 1 will be removed (18=1+9+1+((5+9)/2)).
         testHarness.processWatermark1(new Watermark(18));
-        testHarness.processWatermark2(new Watermark(18));
+        testHarness.processWatermark2(new Watermark(18));//输出watermark 9（18-9），右流过期数据（1L, "k2"）不输出，因为是leftjoin，不是rightjoin
         assertEquals(0, testHarness.numEventTimeTimers());
         assertEquals(0, testHarness.numKeyedStateEntries());
 
-        testHarness.processElement1(insertRecord(2L, "k1"));
+        testHarness.processElement1(insertRecord(2L, "k1"));//小于右流过期数据了（18-9-0-1），即此条左流数据没有右流数据能连上，因为是leftjoin，输出此条左流数据（2L, "k1"，null，null）
         testHarness.processElement2(insertRecord(2L, "k2"));
         // The late rows with timestamp = 2 will not be cached, but a null padding result for the
         // left
@@ -207,15 +207,15 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
         testHarness.processElement1(insertRecord(19L, "k1"));
         testHarness.processElement1(insertRecord(20L, "k1"));
         testHarness.processElement2(insertRecord(26L, "k1"));
-        testHarness.processElement2(insertRecord(25L, "k1"));
-        testHarness.processElement1(insertRecord(21L, "k1"));
+        testHarness.processElement2(insertRecord(25L, "k1"));//输出（20L, "k1"，25L, "k1"）
+        testHarness.processElement1(insertRecord(21L, "k1"));//输出（21L, "k1"，25L, "k1"）（21L, "k1"，26L, "k1"）
         testHarness.processElement2(insertRecord(39L, "k2"));
         testHarness.processElement2(insertRecord(40L, "k2"));
         testHarness.processElement1(insertRecord(50L, "k2"));
-        testHarness.processElement1(insertRecord(49L, "k2"));
-        testHarness.processElement2(insertRecord(41L, "k2"));
+        testHarness.processElement1(insertRecord(49L, "k2"));//输出（49L, "k2"，40L, "k2"）
+        testHarness.processElement2(insertRecord(41L, "k2"));//输出（49L, "k2"，41L, "k2"） （50L, "k2"，41L, "k2"）
         testHarness.processWatermark1(new Watermark(100));
-        testHarness.processWatermark2(new Watermark(100));
+        testHarness.processWatermark2(new Watermark(100));//输出（19L, "k1"，null, null） 还有一个watermark 91 （100-9）
 
         List<Object> expectedOutput = new ArrayList<>();
         // The timestamp 14 is set with the triggered timer.

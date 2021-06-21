@@ -27,8 +27,8 @@ public final class RowTimeIntervalJoin extends TimeIntervalJoin {
 
     private static final long serialVersionUID = -2923709329817468698L;
 
-    private final int leftTimeIdx;
-    private final int rightTimeIdx;
+    private final int leftTimeIdx;//左流事件时间索引
+    private final int rightTimeIdx;//右流事件时间索引
 
     public RowTimeIntervalJoin(
             FlinkJoinType joinType,
@@ -61,7 +61,7 @@ public final class RowTimeIntervalJoin extends TimeIntervalJoin {
     public long getMaxOutputDelay() {
         return Math.max(leftRelativeSize, rightRelativeSize) + allowedLateness;
     }
-
+//获取当前watermark并赋值给leftOperatorTime，rightOperatorTime
     @Override
     void updateOperatorTime(Context ctx) {
         leftOperatorTime =

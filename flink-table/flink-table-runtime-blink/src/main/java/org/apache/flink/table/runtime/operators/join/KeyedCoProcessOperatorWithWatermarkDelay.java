@@ -52,7 +52,7 @@ public class KeyedCoProcessOperatorWithWatermarkDelay<K, IN1, IN2, OUT>
                     (Consumer<Watermark> & Serializable)
                             (Watermark mark) ->
                                     output.emitWatermark(
-                                            new Watermark(mark.getTimestamp() - watermarkDelay));
+                                            new Watermark(mark.getTimestamp() - watermarkDelay));//输出watermark
         }
     }
 

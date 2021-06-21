@@ -31,13 +31,13 @@ import org.apache.flink.util.OutputTag;
  * org.apache.flink.streaming.runtime.streamrecord.StreamRecord} here.
  *
  * @param <T> The type of the elements that can be emitted.
- */
+ */   //带有Timestamp的StreamRecord
 @Internal
 public final class TimestampedCollector<T> implements Output<T> {
 
     private final Output<StreamRecord<T>> output;
 
-    private final StreamRecord<T> reuse;
+    private final StreamRecord<T> reuse;//里面的timestamp是被触发的timer的timestamp
 
     /** Creates a new {@link TimestampedCollector} that wraps the given {@link Output}. */
     public TimestampedCollector(Output<StreamRecord<T>> output) {
@@ -49,7 +49,7 @@ public final class TimestampedCollector<T> implements Output<T> {
     public void collect(T record) {
         output.collect(reuse.replace(record));
     }
-
+//有Timestamp就设置reuse的Timestamp，没有就设置reuse的hasTimestamp = false
     public void setTimestamp(StreamRecord<?> timestampBase) {
         if (timestampBase.hasTimestamp()) {
             reuse.setTimestamp(timestampBase.getTimestamp());
