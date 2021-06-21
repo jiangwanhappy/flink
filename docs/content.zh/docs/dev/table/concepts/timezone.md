@@ -49,7 +49,7 @@ Flink SQL> SELECT TIMESTAMP '1970-01-01 00:00:04.001';
 
  ```sql
 Flink SQL> CREATE VIEW T1 AS SELECT TO_TIMESTAMP_LTZ(4001, 3);
-Flink SQL> SET table.local-time-zone=UTC;
+Flink SQL> SET 'table.local-time-zone' = 'UTC';
 Flink SQL> SELECT * FROM T1;
 +---------------------------+
 | TO_TIMESTAMP_LTZ(4001, 3) |
@@ -57,7 +57,7 @@ Flink SQL> SELECT * FROM T1;
 |   1970-01-01 00:00:04.001 |
 +---------------------------+
 
-Flink SQL> SET table.local-time-zone=Asia/Shanghai;
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai';
 Flink SQL> SELECT * FROM T1;
 +---------------------------+
 | TO_TIMESTAMP_LTZ(4001, 3) |
@@ -76,18 +76,18 @@ Flink SQL> SELECT * FROM T1;
 {{< tab "SQL Client" >}}
 ```sql
 -- 设置为 UTC 时区
-Flink SQL> SET table.local-time-zone=UTC;
+Flink SQL> SET 'table.local-time-zone' = 'UTC';
 
 -- 设置为上海时区
-Flink SQL> SET table.local-time-zone=Asia/Shanghai;
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai';
 
 -- 设置为Los_Angeles时区
-Flink SQL> SET table.local-time-zone=America/Los_Angeles;
+Flink SQL> SET 'table.local-time-zone' = 'America/Los_Angeles';
 ```
 {{< /tab >}}
 {{< tab "Java" >}}
 ```java
- EnvironmentSettings envSetting = EnvironmentSettings.newInstance().build();
+ EnvironmentSettings envSetting = EnvironmentSettings.inStreamingMode();
  TableEnvironment tEnv = TableEnvironment.create(envSetting);
 
  // 设置为 UTC 时区
@@ -102,7 +102,7 @@ Flink SQL> SET table.local-time-zone=America/Los_Angeles;
 {{< /tab >}}
 {{< tab "Scala" >}}
 ```scala
-val envSetting = EnvironmentSettings.newInstance.build
+val envSetting = EnvironmentSettings.inStreamingMode()
 val tEnv = TableEnvironment.create(envSetting)
 
 // 设置为 UTC 时区
@@ -132,7 +132,7 @@ session （会话）中配置的时区会对以下函数生效。
 
 
 ```sql
-Flink SQL> SET sql-client.execution.result-mode=tableau;
+Flink SQL> SET 'sql-client.execution.result-mode' = 'tableau';
 Flink SQL> CREATE VIEW MyView1 AS SELECT LOCALTIME, LOCALTIMESTAMP, CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, CURRENT_ROW_TIMESTAMP(), NOW(), PROCTIME();
 Flink SQL> DESC MyView1;
 ```
@@ -153,7 +153,7 @@ Flink SQL> DESC MyView1;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=UTC;
+Flink SQL> SET 'table.local-time-zone' = 'UTC';
 Flink SQL> SELECT * FROM MyView1;
 ```
 
@@ -166,7 +166,7 @@ Flink SQL> SELECT * FROM MyView1;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=Asia/Shanghai;
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai';
 Flink SQL> SELECT * FROM MyView1;
 ```
 
@@ -195,7 +195,7 @@ Flink SQL> DESC MyView2;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=UTC;
+Flink SQL> SET 'table.local-time-zone' = 'UTC';
 Flink SQL> SELECT * FROM MyView2;
 ```
 
@@ -208,7 +208,7 @@ Flink SQL> SELECT * FROM MyView2;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=Asia/Shanghai;
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai';
 Flink SQL> SELECT * FROM MyView2;
 ```
 
@@ -264,7 +264,7 @@ Flink SQL 使用函数 `PROCTIME()` 来定义处理时间属性， 该函数返�
 `PROCTIME()` 返回的是本地时区的时间， 使用 `TIMESTAMP_LTZ` 类型也可以支持夏令时时间。
 
 ```sql
-Flink SQL> SET table.local-time-zone=UTC;
+Flink SQL> SET 'table.local-time-zone' = 'UTC';
 Flink SQL> SELECT PROCTIME();
 ```
 ```
@@ -276,7 +276,7 @@ Flink SQL> SELECT PROCTIME();
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=Asia/Shanghai;
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai';
 Flink SQL> SELECT PROCTIME();
 ```
 ```
@@ -319,7 +319,7 @@ Flink SQL> DESC MyView3;
 |    window_start |                TIMESTAMP(3) | false |     |        |           |
 |      window_end |                TIMESTAMP(3) | false |     |        |           |
 | window_proctime | TIMESTAMP_LTZ(3) *PROCTIME* | false |     |        |           |
-|            item |                      STRING | true |     |        |           |
+|            item |                      STRING | true  |     |        |           |
 |       max_price |                      DOUBLE |  true |     |        |           |
 +-----------------+-----------------------------+-------+-----+--------+-----------+
 ```
@@ -336,7 +336,7 @@ C,3.8
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=UTC;
+Flink SQL> SET 'table.local-time-zone' = 'UTC';
 Flink SQL> SELECT * FROM MyView3;
 ```
 
@@ -351,7 +351,7 @@ Flink SQL> SELECT * FROM MyView3;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=Asia/Shanghai;
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai';
 Flink SQL> SELECT * FROM MyView3;
 ```
 
@@ -426,7 +426,7 @@ C,3.8,2021-04-15 14:11:00
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=UTC; 
+Flink SQL> SET 'table.local-time-zone' = 'UTC'; 
 Flink SQL> SELECT * FROM MyView4;
 ```
                
@@ -441,7 +441,7 @@ Flink SQL> SELECT * FROM MyView4;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=Asia/Shanghai; 
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai'; 
 Flink SQL> SELECT * FROM MyView4;
 ```
 
@@ -508,7 +508,7 @@ C,3.8,1618495860000  # The corresponding utc timestamp is 2021-04-15 14:11:00
 ```    
 
 ```sql
-Flink SQL> SET table.local-time-zone=UTC; 
+Flink SQL> SET 'table.local-time-zone' = 'UTC'; 
 Flink SQL> SELECT * FROM MyView5;
 ```                         
                
@@ -523,7 +523,7 @@ Flink SQL> SELECT * FROM MyView5;
 ```
 
 ```sql
-Flink SQL> SET table.local-time-zone=Asia/Shanghai; 
+Flink SQL> SET 'table.local-time-zone' = 'Asia/Shanghai'; 
 Flink SQL> SELECT * FROM MyView5;
 ```
 
@@ -542,7 +542,7 @@ Flink SQL> SELECT * FROM MyView5;
 Flink SQL支持在 `TIMESTAMP_LTZ`列上定义时间属性， 基于这一特征，Flink SQL 在窗口中使用 `TIMESTAMP` 和 `TIMESTAMP_LTZ` 类型优雅地支持了夏令时。
 
 Flink 使用时间戳的字符格式来分割窗口并通过每条记录对应的 epoch 时间来分配窗口。 这意味着 Flink 窗口开始时间和窗口结束时间使用的是 `TIMESTAMP` 类型（例如: `TUMBLE_START` 和 `TUMBLE_END`）， 窗口的时间属性使用的是 `TIMESTAMP_LTZ` 类型（例如: `TUMBLE_PROCTIME`， `TUMBLE_ROWTIME`）。
-给定一个 tumble window示例， 在 Los_Angele 时区下夏令时从 `2021-03-14 02:00:00` 开始：
+给定一个 tumble window示例， 在 Los_Angeles 时区下夏令时从 `2021-03-14 02:00:00` 开始：
 ```
 long epoch1 = 1615708800000L; // 2021-03-14 00:00:00
 long epoch2 = 1615712400000L; // 2021-03-14 01:00:00

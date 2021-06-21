@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.operations;
 
+import org.apache.flink.sql.parser.ddl.SqlAddJar;
 import org.apache.flink.sql.parser.ddl.SqlAddPartitions;
 import org.apache.flink.sql.parser.ddl.SqlAddReplaceColumns;
 import org.apache.flink.sql.parser.ddl.SqlAlterDatabase;
@@ -27,6 +28,7 @@ import org.apache.flink.sql.parser.ddl.SqlAlterTableAddConstraint;
 import org.apache.flink.sql.parser.ddl.SqlAlterTableDropConstraint;
 import org.apache.flink.sql.parser.ddl.SqlAlterTableOptions;
 import org.apache.flink.sql.parser.ddl.SqlAlterTableRename;
+import org.apache.flink.sql.parser.ddl.SqlAlterTableReset;
 import org.apache.flink.sql.parser.ddl.SqlAlterView;
 import org.apache.flink.sql.parser.ddl.SqlAlterViewAs;
 import org.apache.flink.sql.parser.ddl.SqlAlterViewProperties;
@@ -43,6 +45,9 @@ import org.apache.flink.sql.parser.ddl.SqlDropFunction;
 import org.apache.flink.sql.parser.ddl.SqlDropPartitions;
 import org.apache.flink.sql.parser.ddl.SqlDropTable;
 import org.apache.flink.sql.parser.ddl.SqlDropView;
+import org.apache.flink.sql.parser.ddl.SqlRemoveJar;
+import org.apache.flink.sql.parser.ddl.SqlReset;
+import org.apache.flink.sql.parser.ddl.SqlSet;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
 import org.apache.flink.sql.parser.ddl.SqlUseCatalog;
 import org.apache.flink.sql.parser.ddl.SqlUseDatabase;
@@ -60,6 +65,7 @@ import org.apache.flink.sql.parser.dql.SqlShowCurrentCatalog;
 import org.apache.flink.sql.parser.dql.SqlShowCurrentDatabase;
 import org.apache.flink.sql.parser.dql.SqlShowDatabases;
 import org.apache.flink.sql.parser.dql.SqlShowFunctions;
+import org.apache.flink.sql.parser.dql.SqlShowJars;
 import org.apache.flink.sql.parser.dql.SqlShowModules;
 import org.apache.flink.sql.parser.dql.SqlShowPartitions;
 import org.apache.flink.sql.parser.dql.SqlShowTables;
@@ -109,6 +115,11 @@ import org.apache.flink.table.operations.UnloadModuleOperation;
 import org.apache.flink.table.operations.UseCatalogOperation;
 import org.apache.flink.table.operations.UseDatabaseOperation;
 import org.apache.flink.table.operations.UseModulesOperation;
+import org.apache.flink.table.operations.command.AddJarOperation;
+import org.apache.flink.table.operations.command.RemoveJarOperation;
+import org.apache.flink.table.operations.command.ResetOperation;
+import org.apache.flink.table.operations.command.SetOperation;
+import org.apache.flink.table.operations.command.ShowJarsOperation;
 import org.apache.flink.table.operations.ddl.AddPartitionsOperation;
 import org.apache.flink.table.operations.ddl.AlterCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.AlterDatabaseOperation;
@@ -159,6 +170,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -269,6 +281,12 @@ public class SqlToOperationConverter {
             return Optional.of(converter.convertRichExplain((SqlRichExplain) validated));
         } else if (validated instanceof SqlRichDescribeTable) {
             return Optional.of(converter.convertDescribeTable((SqlRichDescribeTable) validated));
+        } else if (validated instanceof SqlAddJar) {
+            return Optional.of(converter.convertAddJar((SqlAddJar) validated));
+        } else if (validated instanceof SqlRemoveJar) {
+            return Optional.of(converter.convertRemoveJar((SqlRemoveJar) validated));
+        } else if (validated instanceof SqlShowJars) {
+            return Optional.of(converter.convertShowJars((SqlShowJars) validated));
         } else if (validated instanceof RichSqlInsert) {
             return Optional.of(converter.convertSqlInsert((RichSqlInsert) validated));
         } else if (validated instanceof SqlBeginStatementSet) {
@@ -276,6 +294,10 @@ public class SqlToOperationConverter {
                     converter.convertBeginStatementSet((SqlBeginStatementSet) validated));
         } else if (validated instanceof SqlEndStatementSet) {
             return Optional.of(converter.convertEndStatementSet((SqlEndStatementSet) validated));
+        } else if (validated instanceof SqlSet) {
+            return Optional.of(converter.convertSet((SqlSet) validated));
+        } else if (validated instanceof SqlReset) {
+            return Optional.of(converter.convertReset((SqlReset) validated));
         } else if (validated.getKind().belongsTo(SqlKind.QUERY)) {
             return Optional.of(converter.convertSqlQuery(validated));
         } else {
@@ -382,6 +404,9 @@ public class SqlToOperationConverter {
                     tableIdentifier,
                     (CatalogTable) baseTable,
                     (SqlAlterTableOptions) sqlAlterTable);
+        } else if (sqlAlterTable instanceof SqlAlterTableReset) {
+            return convertAlterTableReset(
+                    tableIdentifier, (CatalogTable) baseTable, (SqlAlterTableReset) sqlAlterTable);
         } else if (sqlAlterTable instanceof SqlAlterTableAddConstraint) {
             SqlTableConstraint constraint =
                     ((SqlAlterTableAddConstraint) sqlAlterTable).getConstraint();
@@ -493,6 +518,21 @@ public class SqlToOperationConverter {
                     OperationConverterUtils.extractProperties(alterTableOptions.getPropertyList()));
             return new AlterTableOptionsOperation(tableIdentifier, oldTable.copy(newOptions));
         }
+    }
+
+    private Operation convertAlterTableReset(
+            ObjectIdentifier tableIdentifier,
+            CatalogTable oldTable,
+            SqlAlterTableReset alterTableReset) {
+        Map<String, String> newOptions = new HashMap<>(oldTable.getOptions());
+        // reset empty key is not allowed
+        Set<String> resetKeys = alterTableReset.getResetKeys();
+        if (resetKeys.isEmpty()) {
+            throw new ValidationException("ALTER TABLE RESET does not support empty key");
+        }
+        // reset table option keys
+        resetKeys.forEach(newOptions::remove);
+        return new AlterTableOptionsOperation(tableIdentifier, oldTable.copy(newOptions));
     }
 
     /** Convert CREATE FUNCTION statement. */
@@ -938,6 +978,18 @@ public class SqlToOperationConverter {
         return new LoadModuleOperation(moduleName, properties);
     }
 
+    private Operation convertAddJar(SqlAddJar sqlAddJar) {
+        return new AddJarOperation(sqlAddJar.getPath());
+    }
+
+    private Operation convertRemoveJar(SqlRemoveJar sqlRemoveJar) {
+        return new RemoveJarOperation(sqlRemoveJar.getPath());
+    }
+
+    private Operation convertShowJars(SqlShowJars sqlShowJars) {
+        return new ShowJarsOperation();
+    }
+
     /** Convert UNLOAD MODULE statement. */
     private Operation convertUnloadModule(SqlUnloadModule sqlUnloadModule) {
         String moduleName = sqlUnloadModule.moduleName();
@@ -952,6 +1004,20 @@ public class SqlToOperationConverter {
     /** Convert SHOW [FULL] MODULES statement. */
     private Operation convertShowModules(SqlShowModules sqlShowModules) {
         return new ShowModulesOperation(sqlShowModules.requireFull());
+    }
+
+    /** Convert SET ['key' = 'value']. */
+    private Operation convertSet(SqlSet sqlSet) {
+        if (sqlSet.getKey() == null && sqlSet.getValue() == null) {
+            return new SetOperation();
+        } else {
+            return new SetOperation(sqlSet.getKeyString(), sqlSet.getValueString());
+        }
+    }
+
+    /** Convert RESET ['key']. */
+    private Operation convertReset(SqlReset sqlReset) {
+        return new ResetOperation(sqlReset.getKeyString());
     }
 
     /** Fallback method for sql query. */
