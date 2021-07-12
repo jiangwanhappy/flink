@@ -31,6 +31,7 @@ import org.apache.flink.table.utils.HandwrittenSelectorUtil;
 
 import org.junit.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -393,5 +394,12 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
                 new KeyedTwoInputStreamOperatorTestHarness<>(
                         operator, keySelector, keySelector, keyType);
         return testHarness;
+    }
+
+    public static void main(String[] args) {
+        String tran_no = "C001";
+        byte[] sb = tran_no.getBytes();
+        System.out.println(tran_no.getBytes());
+
     }
 }

@@ -52,17 +52,17 @@ public class StatusWatermarkValveTest {
 
     /**
      * Tests that watermarks correctly advance with increasing watermarks for a single input valve.
-     */
+     *///已看完
     @Test
     public void testSingleInputIncreasingWatermarks() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
         StatusWatermarkValve valve = new StatusWatermarkValve(1);
 
-        valve.inputWatermark(new Watermark(0), 0, valveOutput);
+        valve.inputWatermark(new Watermark(0), 0, valveOutput);//为0的channel的watermark为0
         assertEquals(new Watermark(0), valveOutput.popLastSeenOutput());
         assertEquals(null, valveOutput.popLastSeenOutput());
 
-        valve.inputWatermark(new Watermark(25), 0, valveOutput);
+        valve.inputWatermark(new Watermark(25), 0, valveOutput);//因为大于上次的watermark0，为0的channel的watermark为25
         assertEquals(new Watermark(25), valveOutput.popLastSeenOutput());
         assertEquals(null, valveOutput.popLastSeenOutput());
     }
@@ -70,7 +70,7 @@ public class StatusWatermarkValveTest {
     /**
      * Tests that watermarks do not advance with decreasing watermark inputs for a single input
      * valve.
-     */
+     *///已看完
     @Test
     public void testSingleInputDecreasingWatermarksYieldsNoOutput() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -79,18 +79,18 @@ public class StatusWatermarkValveTest {
         valve.inputWatermark(new Watermark(25), 0, valveOutput);
         assertEquals(new Watermark(25), valveOutput.popLastSeenOutput());
 
-        valve.inputWatermark(new Watermark(18), 0, valveOutput);
+        valve.inputWatermark(new Watermark(18), 0, valveOutput);//小于25，不发送watermark
         assertEquals(null, valveOutput.popLastSeenOutput());
 
-        valve.inputWatermark(new Watermark(42), 0, valveOutput);
+        valve.inputWatermark(new Watermark(42), 0, valveOutput);//大于25，发送watermark
         assertEquals(new Watermark(42), valveOutput.popLastSeenOutput());
         assertEquals(null, valveOutput.popLastSeenOutput());
     }
 
     /**
      * Tests that stream status toggling works correctly, as well as that non-toggling status inputs
-     * do not yield output for a single input valve.
-     */
+     * do not yield output for a single input valve.//已看完
+     *///当StreamStatus有变动时（从idle变为active，或从active变为idle时），将变动后的StreamStatus发送到下游
     @Test
     public void testSingleInputStreamStatusToggling() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -112,7 +112,7 @@ public class StatusWatermarkValveTest {
     }
 
     /** Tests that the watermark of an input channel remains intact while in the IDLE status. */
-    @Test
+    @Test //已看完
     public void testSingleInputWatermarksIntactDuringIdleness() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
         StatusWatermarkValve valve = new StatusWatermarkValve(1);
@@ -124,7 +124,7 @@ public class StatusWatermarkValveTest {
         valve.inputStreamStatus(StreamStatus.IDLE, 0, valveOutput);
         assertEquals(StreamStatus.IDLE, valveOutput.popLastSeenOutput());
 
-        valve.inputWatermark(new Watermark(50), 0, valveOutput);
+        valve.inputWatermark(new Watermark(50), 0, valveOutput);//因为此channel为idle了
         assertEquals(null, valveOutput.popLastSeenOutput());
         assertEquals(25, valve.getInputChannelStatus(0).watermark);
 
@@ -138,18 +138,18 @@ public class StatusWatermarkValveTest {
     }
 
     /** Tests that the valve yields a watermark only when all inputs have received a watermark. */
-    @Test
+    @Test //已看完
     public void testMultipleInputYieldsWatermarkOnlyWhenAllChannelsReceivesWatermarks()
             throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
         StatusWatermarkValve valve = new StatusWatermarkValve(3);
 
-        valve.inputWatermark(new Watermark(0), 0, valveOutput);
+        valve.inputWatermark(new Watermark(0), 0, valveOutput);//因为有3个channel，
         valve.inputWatermark(new Watermark(0), 1, valveOutput);
         assertEquals(null, valveOutput.popLastSeenOutput());
 
         // now, all channels have watermarks
-        valve.inputWatermark(new Watermark(0), 2, valveOutput);
+        valve.inputWatermark(new Watermark(0), 2, valveOutput);//此时3个channel的watermark都为0，即所有channel最小watermark为0 ，大于默认Long.MIN_VALUE，所有发送watermark
         assertEquals(new Watermark(0), valveOutput.popLastSeenOutput());
         assertEquals(null, valveOutput.popLastSeenOutput());
     }
@@ -157,7 +157,7 @@ public class StatusWatermarkValveTest {
     /**
      * Tests that new min watermark is emitted from the valve as soon as the overall new min
      * watermark across inputs advances.
-     */
+     */ //已看完
     @Test
     public void testMultipleInputIncreasingWatermarks() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -190,7 +190,7 @@ public class StatusWatermarkValveTest {
     }
 
     /** Tests that for a multiple input valve, decreasing watermarks will yield no output. */
-    @Test
+    @Test //已看完
     public void testMultipleInputDecreasingWatermarksYieldsNoOutput() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
         StatusWatermarkValve valve = new StatusWatermarkValve(3);
@@ -209,7 +209,7 @@ public class StatusWatermarkValveTest {
     /**
      * Tests that stream status toggling works correctly, as well as that non-toggling status inputs
      * do not yield output for a multiple input valve.
-     */
+     *///可以看出，当所有都为idle时，才发送idle，当有一个（不需要全部）从idle变为active（之后再有其他的变为active，就不发送了，因为lastOutputStreamStatus是active，没有变动），就发送active
     @Test
     public void testMultipleInputStreamStatusToggling() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -220,11 +220,11 @@ public class StatusWatermarkValveTest {
         valve.inputStreamStatus(StreamStatus.ACTIVE, 1, valveOutput);
         assertEquals(null, valveOutput.popLastSeenOutput());
 
-        valve.inputStreamStatus(StreamStatus.IDLE, 1, valveOutput);
+        valve.inputStreamStatus(StreamStatus.IDLE, 1, valveOutput);//channel-1变为IDLE，剩余还有0是active，看剩余channel的最小watermark是否大于lastOutputWatermark，大于则发送
         assertEquals(null, valveOutput.popLastSeenOutput());
 
         // now, all channels are IDLE
-        valve.inputStreamStatus(StreamStatus.IDLE, 0, valveOutput);
+        valve.inputStreamStatus(StreamStatus.IDLE, 0, valveOutput);//所有channel都变为idle，发送StreamStatus
         assertEquals(StreamStatus.IDLE, valveOutput.popLastSeenOutput());
 
         valve.inputStreamStatus(StreamStatus.IDLE, 0, valveOutput);
@@ -232,7 +232,7 @@ public class StatusWatermarkValveTest {
         assertEquals(null, valveOutput.popLastSeenOutput());
 
         // as soon as at least one input becomes active again, the ACTIVE marker should be forwarded
-        valve.inputStreamStatus(StreamStatus.ACTIVE, 1, valveOutput);
+        valve.inputStreamStatus(StreamStatus.ACTIVE, 1, valveOutput);//发送active
         assertEquals(StreamStatus.ACTIVE, valveOutput.popLastSeenOutput());
 
         valve.inputStreamStatus(StreamStatus.ACTIVE, 0, valveOutput);
@@ -243,7 +243,7 @@ public class StatusWatermarkValveTest {
     /**
      * Tests that for multiple inputs, when some inputs are idle, the min watermark is correctly
      * computed and advanced from the remaining active inputs.
-     */
+     */ //已看完
     @Test
     public void testMultipleInputWatermarkAdvancingWithPartiallyIdleChannels() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -253,7 +253,7 @@ public class StatusWatermarkValveTest {
         valve.inputWatermark(new Watermark(10), 1, valveOutput);
         assertEquals(null, valveOutput.popLastSeenOutput());
 
-        valve.inputStreamStatus(StreamStatus.IDLE, 2, valveOutput);
+        valve.inputStreamStatus(StreamStatus.IDLE, 2, valveOutput);//找出剩余alignedchannel的最小watermark即channel-1 的10
         // min watermark should be computed from remaining ACTIVE channels
         assertEquals(new Watermark(10), valveOutput.popLastSeenOutput());
         assertEquals(null, valveOutput.popLastSeenOutput());
@@ -272,7 +272,7 @@ public class StatusWatermarkValveTest {
     /**
      * Tests that as input channels individually and gradually become idle, watermarks are output as
      * soon remaining active channels can yield a new min watermark.
-     */
+     */ //已看完
     @Test
     public void testMultipleInputWatermarkAdvancingAsChannelsIndividuallyBecomeIdle()
             throws Exception {
@@ -302,7 +302,7 @@ public class StatusWatermarkValveTest {
      * #testMultipleInputWatermarkAdvancingAsChannelsIndividuallyBecomeIdle} should completely
      * verify that the eventual watermark advancement result when all inputs become idle is
      * independent of the order that the inputs become idle.
-     */
+     */ //已看完
     @Test
     public void testMultipleInputFlushMaxWatermarkAndStreamStatusOnceAllInputsBecomeIdle()
             throws Exception {
@@ -332,7 +332,7 @@ public class StatusWatermarkValveTest {
         valve.inputStreamStatus(StreamStatus.IDLE, 1, valveOutput);
         assertEquals(null, valveOutput.popLastSeenOutput());
 
-        valve.inputStreamStatus(StreamStatus.IDLE, 2, valveOutput);
+        valve.inputStreamStatus(StreamStatus.IDLE, 2, valveOutput);//都变为idle，找所有channel中最大的watermark发送 并发送streamstatus
         assertEquals(new Watermark(10), valveOutput.popLastSeenOutput());
         assertEquals(StreamStatus.IDLE, valveOutput.popLastSeenOutput());
         assertEquals(null, valveOutput.popLastSeenOutput());
@@ -341,7 +341,7 @@ public class StatusWatermarkValveTest {
     /**
      * Tests that when idle channels become active again, they need to "catch up" with the latest
      * watermark before they are considered for min watermark computation again.
-     */
+     */ //已看完
     @Test
     public void testMultipleInputWatermarkRealignmentAfterResumeActive() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -359,7 +359,7 @@ public class StatusWatermarkValveTest {
 
         // let channel 2 become active again; since the min watermark has now advanced to 7,
         // channel 2 should have been marked as non-aligned.
-        valve.inputStreamStatus(StreamStatus.ACTIVE, 2, valveOutput);
+        valve.inputStreamStatus(StreamStatus.ACTIVE, 2, valveOutput);//重新由idle变为active，因为3 < 7,所以此channel的isWatermarkAligned为false
         assertFalse(valve.getInputChannelStatus(2).isWatermarkAligned);
 
         // during the realignment process, watermarks should still be accepted by channel 2 (but
@@ -383,7 +383,7 @@ public class StatusWatermarkValveTest {
      * Verify that we don't see any state changes/watermarks when all ACTIVE channels are unaligned.
      * Earlier versions of the valve had a bug that would cause it to emit a {@code Long.MAX_VALUE}
      * watermark in that case.
-     */
+     */ //已看完
     @Test
     public void testNoOutputWhenAllActiveChannelsAreUnaligned() throws Exception {
         StatusWatermarkOutput valveOutput = new StatusWatermarkOutput();
@@ -410,7 +410,7 @@ public class StatusWatermarkValveTest {
     }
 
     private static class StatusWatermarkOutput implements PushingAsyncDataInput.DataOutput {
-
+//LinkedBlockingQueue是一个单向链表实现的阻塞队列，先进先出的顺序。支持多线程并发操作。
         private BlockingQueue<StreamElement> allOutputs = new LinkedBlockingQueue<>();
 
         @Override

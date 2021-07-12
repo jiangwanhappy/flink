@@ -81,7 +81,7 @@ import org.apache.flink.streaming.runtime.tasks.StreamTask;
  * longer send any more elements, the source should still send a {@link Watermark#MAX_WATERMARK}
  * instead of {@link StreamStatus#IDLE}. Stream Status elements only serve as markers for temporary
  * status.
- */
+ */ //只有两种状态，IDLE（-1），ACTIVE（0）
 @Internal
 public final class StreamStatus extends StreamElement {
 
