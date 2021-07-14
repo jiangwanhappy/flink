@@ -28,7 +28,6 @@ import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.memory.ManagedMemoryUseCase;
 import org.apache.flink.python.PythonConfig;
-import org.apache.flink.python.PythonOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
@@ -95,17 +94,6 @@ public class PythonConfigUtil {
 
         getConfigurationMethod.setAccessible(true);
         return (Configuration) getConfigurationMethod.invoke(env);
-    }
-
-    /** Set Python Operator Use Managed Memory. */
-    public static void declareManagedMemory(
-            Transformation<?> transformation,
-            StreamExecutionEnvironment env,
-            TableConfig tableConfig) {
-        Configuration config = getMergedConfig(env, tableConfig);
-        if (config.getBoolean(PythonOptions.USE_MANAGED_MEMORY)) {
-            declareManagedMemory(transformation);
-        }
     }
 
     /**
@@ -227,7 +215,9 @@ public class PythonConfigUtil {
 
     private static void chainTransformation(
             Transformation<?> firstTransformation, Transformation<?> secondTransformation) {
-        firstTransformation.setSlotSharingGroup(secondTransformation.getSlotSharingGroup());
+        secondTransformation
+                .getSlotSharingGroup()
+                .ifPresent(firstTransformation::setSlotSharingGroup);
         firstTransformation.setCoLocationGroupKey(secondTransformation.getCoLocationGroupKey());
         firstTransformation.setParallelism(secondTransformation.getParallelism());
     }
@@ -324,16 +314,6 @@ public class PythonConfigUtil {
                                             != Boundedness.BOUNDED);
         }
         return !existsUnboundedSource;
-    }
-
-    private static void declareManagedMemory(Transformation<?> transformation) {
-        if (isPythonOperator(transformation)) {
-            transformation.declareManagedMemoryUseCaseAtSlotScope(ManagedMemoryUseCase.PYTHON);
-        }
-
-        for (Transformation<?> inputTransformation : transformation.getInputs()) {
-            declareManagedMemory(inputTransformation);
-        }
     }
 
     private static void setPartitionCustomOperatorNumPartitions(
