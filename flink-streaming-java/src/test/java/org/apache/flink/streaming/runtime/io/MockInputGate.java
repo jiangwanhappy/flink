@@ -26,8 +26,11 @@ import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -160,10 +163,20 @@ public class MockInputGate extends IndexedInputGate {
     }
 
     @Override
+    public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
+        throw new UnsupportedEncodingException();
+    }
+
+    @Override
     public void close() {}
 
     @Override
     public int getGateIndex() {
         return 0;
+    }
+
+    @Override
+    public List<InputChannelInfo> getUnfinishedChannels() {
+        return Collections.emptyList();
     }
 }

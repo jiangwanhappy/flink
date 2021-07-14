@@ -40,7 +40,7 @@ import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
 import org.apache.flink.table.planner.typeutils.DataViewUtils;
 import org.apache.flink.table.runtime.keyselector.RowDataKeySelector;
 import org.apache.flink.table.runtime.operators.python.utils.StreamRecordRowDataWrappingCollector;
-import org.apache.flink.table.runtime.runners.python.beam.BeamTableStatefulPythonFunctionRunner;
+import org.apache.flink.table.runtime.runners.python.beam.BeamTablePythonFunctionRunner;
 import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
 import org.apache.flink.table.runtime.typeutils.PythonTypeUtils;
 import org.apache.flink.table.types.logical.RowType;
@@ -62,10 +62,6 @@ public abstract class AbstractPythonStreamAggregateOperator
         extends AbstractOneInputPythonFunctionOperator<RowData, RowData> {
 
     private static final long serialVersionUID = 1L;
-
-    @VisibleForTesting
-    protected static final String FLINK_AGGREGATE_FUNCTION_SCHEMA_CODER_URN =
-            "flink:coder:schema:aggregate_function:v1";
 
     @VisibleForTesting static final byte NORMAL_RECORD = 0;
 
@@ -101,8 +97,13 @@ public abstract class AbstractPythonStreamAggregateOperator
 
     private final int mapStateWriteCacheSize;
 
-    private final String coderUrn;
+    /** The Input DataType of BaseCoder in Python. */
+    private final FlinkFnApi.CoderParam.DataType inputDataType;
 
+    /** The output DataType of BaseCoder in Python. */
+    private final FlinkFnApi.CoderParam.DataType outputDataType;
+
+    /** The output mode of BaseCoder in Python. */
     private final FlinkFnApi.CoderParam.OutputMode outputMode;
 
     private transient Object keyForTimerService;
@@ -143,7 +144,8 @@ public abstract class AbstractPythonStreamAggregateOperator
             int[] grouping,
             int indexOfCountStar,
             boolean generateUpdateBefore,
-            String coderUrn,
+            FlinkFnApi.CoderParam.DataType inputDataType,
+            FlinkFnApi.CoderParam.DataType outputDataType,
             FlinkFnApi.CoderParam.OutputMode outputMode) {
         super(config);
         this.inputType = Preconditions.checkNotNull(inputType);
@@ -154,8 +156,9 @@ public abstract class AbstractPythonStreamAggregateOperator
         this.grouping = grouping;
         this.indexOfCountStar = indexOfCountStar;
         this.generateUpdateBefore = generateUpdateBefore;
-        this.coderUrn = coderUrn;
-        this.outputMode = outputMode;
+        this.inputDataType = Preconditions.checkNotNull(inputDataType);
+        this.outputDataType = Preconditions.checkNotNull(outputDataType);
+        this.outputMode = Preconditions.checkNotNull(outputMode);
         this.stateCacheSize = config.get(PythonOptions.STATE_CACHE_SIZE);
         this.mapStateReadCacheSize = config.get(PythonOptions.MAP_STATE_READ_CACHE_SIZE);
         this.mapStateWriteCacheSize = config.get(PythonOptions.MAP_STATE_WRITE_CACHE_SIZE);
@@ -169,11 +172,10 @@ public abstract class AbstractPythonStreamAggregateOperator
         baos = new ByteArrayOutputStreamWithPos();
         baosWrapper = new DataOutputViewStreamWrapper(baos);
         userDefinedFunctionInputType = getUserDefinedFunctionInputType();
-        udfInputTypeSerializer =
-                PythonTypeUtils.toBlinkTypeSerializer(userDefinedFunctionInputType);
+        udfInputTypeSerializer = PythonTypeUtils.toInternalSerializer(userDefinedFunctionInputType);
         userDefinedFunctionOutputType = getUserDefinedFunctionOutputType();
         udfOutputTypeSerializer =
-                PythonTypeUtils.toBlinkTypeSerializer(userDefinedFunctionOutputType);
+                PythonTypeUtils.toInternalSerializer(userDefinedFunctionOutputType);
         rowDataWrapper = new StreamRecordRowDataWrappingCollector(output);
         super.open();
     }
@@ -189,14 +191,13 @@ public abstract class AbstractPythonStreamAggregateOperator
 
     @Override
     public PythonFunctionRunner createPythonFunctionRunner() throws Exception {
-        return new BeamTableStatefulPythonFunctionRunner(
+        return new BeamTablePythonFunctionRunner(
                 getRuntimeContext().getTaskName(),
                 createPythonEnvironmentManager(),
                 userDefinedFunctionInputType,
                 userDefinedFunctionOutputType,
                 getFunctionUrn(),
                 getUserDefinedFunctionsProto(),
-                coderUrn,
                 jobOptions,
                 getFlinkMetricContainer(),
                 getKeyedStateBackend(),
@@ -214,6 +215,8 @@ public abstract class AbstractPythonStreamAggregateOperator
                                         .getEnvironment()
                                         .getUserCodeClassLoader()
                                         .asClassLoader()),
+                inputDataType,
+                outputDataType,
                 outputMode);
     }
 
@@ -239,7 +242,7 @@ public abstract class AbstractPythonStreamAggregateOperator
 
     @VisibleForTesting
     TypeSerializer getKeySerializer() {
-        return PythonTypeUtils.toBlinkTypeSerializer(getKeyType());
+        return PythonTypeUtils.toInternalSerializer(getKeyType());
     }
 
     protected RowType getKeyType() {

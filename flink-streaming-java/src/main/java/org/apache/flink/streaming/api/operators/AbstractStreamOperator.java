@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.eventtime.IndexedCombinedWatermarkStatus;
 import org.apache.flink.api.common.state.KeyedStateStore;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
@@ -50,6 +51,7 @@ import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.Check
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.util.LatencyStats;
@@ -88,7 +90,6 @@ public abstract class AbstractStreamOperator<OUT>
                 SetupableStreamOperator<OUT>,
                 CheckpointedStreamOperator,
                 Serializable {
-
     private static final long serialVersionUID = 1L;
 
     /** The logger used by the operator class and its subclasses. */
@@ -108,6 +109,8 @@ public abstract class AbstractStreamOperator<OUT>
 
     protected transient Output<StreamRecord<OUT>> output;
 
+    private transient IndexedCombinedWatermarkStatus combinedWatermark;
+
     /** The runtime context for UDFs. */
     private transient StreamingRuntimeContext runtimeContext;
 
@@ -118,7 +121,7 @@ public abstract class AbstractStreamOperator<OUT>
      * scope keyed state to a key. This is null if the operator is not a keyed operator.
      *
      * <p>This is for elements from the first input.
-     *///一般是左流的（即第一个输入流的）的keyselector
+     */
     private transient KeySelector<?, ?> stateKeySelector1;
 
     /**
@@ -126,9 +129,9 @@ public abstract class AbstractStreamOperator<OUT>
      * scope keyed state to a key. This is null if the operator is not a keyed operator.
      *
      * <p>This is for elements from the second input.
-     *///一般是右流的（即第二个输入流的）的keyselector
+     */
     private transient KeySelector<?, ?> stateKeySelector2;
-//保存当前key
+
     private transient StreamOperatorStateHandler stateHandler;
 
     private transient InternalTimeServiceManager<?> timeServiceManager;
@@ -143,14 +146,6 @@ public abstract class AbstractStreamOperator<OUT>
     // ---------------- time handler ------------------
 
     protected transient ProcessingTimeService processingTimeService;
-
-    // ---------------- two-input operator watermarks ------------------
-
-    // We keep track of watermarks from both inputs, the combined input is the minimum
-    // Once the minimum advances we emit a new watermark for downstream operators
-    private long combinedWatermark = Long.MIN_VALUE;//为左右流中的较小者（即input1Watermark，input2Watermark中的小者），当大于之前的combinedWatermark，才发送此次的combinedWatermark
-    private long input1Watermark = Long.MIN_VALUE;
-    private long input2Watermark = Long.MIN_VALUE;
 
     // ------------------------------------------------------------------------
     //  Life Cycle
@@ -183,6 +178,7 @@ public abstract class AbstractStreamOperator<OUT>
             this.output = output;
         }
 
+        this.combinedWatermark = IndexedCombinedWatermarkStatus.forInputsCount(2);
         try {
             Configuration taskManagerConfig = environment.getTaskManagerInfo().getConfiguration();
             int historySize = taskManagerConfig.getInteger(MetricOptions.LATENCY_HISTORY_SIZE);
@@ -326,30 +322,11 @@ public abstract class AbstractStreamOperator<OUT>
     @Override
     public void open() throws Exception {}
 
-    /**
-     * This method is called after all records have been added to the operators via the methods
-     * {@link OneInputStreamOperator#processElement(StreamRecord)}, or {@link
-     * TwoInputStreamOperator#processElement1(StreamRecord)} and {@link
-     * TwoInputStreamOperator#processElement2(StreamRecord)}.
-     *
-     * <p>The method is expected to flush all remaining buffered data. Exceptions during this
-     * flushing of buffered should be propagated, in order to cause the operation to be recognized
-     * asa failed, because the last data items are not processed properly.
-     *
-     * @throws Exception An exception in this method causes the operator to fail.
-     */
     @Override
-    public void close() throws Exception {}
+    public void finish() throws Exception {}
 
-    /**
-     * This method is called at the very end of the operator's life, both in the case of a
-     * successful completion of the operation, and in the case of a failure and canceling.
-     *
-     * <p>This method is expected to make a thorough effort to release all resources that the
-     * operator has acquired.
-     */
     @Override
-    public void dispose() throws Exception {
+    public void close() throws Exception {
         if (stateHandler != null) {
             stateHandler.dispose();
         }
@@ -628,22 +605,40 @@ public abstract class AbstractStreamOperator<OUT>
         output.emitWatermark(mark);
     }
 
-    public void processWatermark1(Watermark mark) throws Exception {
-        input1Watermark = mark.getTimestamp();
-        long newMin = Math.min(input1Watermark, input2Watermark);
-        if (newMin > combinedWatermark) {
-            combinedWatermark = newMin;
-            processWatermark(new Watermark(combinedWatermark));
+    private void processWatermark(Watermark mark, int index) throws Exception {
+        if (combinedWatermark.updateWatermark(index, mark.getTimestamp())) {
+            processWatermark(new Watermark(combinedWatermark.getCombinedWatermark()));
         }
     }
 
+    public void processWatermark1(Watermark mark) throws Exception {
+        processWatermark(mark, 0);
+    }
+
     public void processWatermark2(Watermark mark) throws Exception {
-        input2Watermark = mark.getTimestamp();
-        long newMin = Math.min(input1Watermark, input2Watermark);
-        if (newMin > combinedWatermark) {
-            combinedWatermark = newMin;
-            processWatermark(new Watermark(combinedWatermark));
+        processWatermark(mark, 1);
+    }
+
+    public void processStreamStatus(StreamStatus streamStatus) throws Exception {
+        output.emitStreamStatus(streamStatus);
+    }
+
+    private void processStreamStatus(StreamStatus streamStatus, int index) throws Exception {
+        boolean wasIdle = combinedWatermark.isIdle();
+        if (combinedWatermark.updateStatus(index, streamStatus.isIdle())) {
+            processWatermark(new Watermark(combinedWatermark.getCombinedWatermark()));
         }
+        if (wasIdle != combinedWatermark.isIdle()) {
+            output.emitStreamStatus(streamStatus);
+        }
+    }
+
+    public final void processStreamStatus1(StreamStatus streamStatus) throws Exception {
+        processStreamStatus(streamStatus, 0);
+    }
+
+    public final void processStreamStatus2(StreamStatus streamStatus) throws Exception {
+        processStreamStatus(streamStatus, 1);
     }
 
     @Override

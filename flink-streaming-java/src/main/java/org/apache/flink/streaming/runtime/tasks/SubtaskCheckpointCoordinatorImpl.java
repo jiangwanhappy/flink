@@ -49,7 +49,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -76,6 +75,12 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
     private static final int DEFAULT_MAX_RECORD_ABORTED_CHECKPOINTS = 128;
 
     private static final int CHECKPOINT_EXECUTION_DELAY_LOG_THRESHOLD_MS = 30_000;
+
+    /**
+     * TODO Whether enables checkpoints after tasks finished. This is a temporary flag and will be
+     * removed in the last PR.
+     */
+    private boolean enableCheckpointAfterTasksFinished;
 
     private final CachingCheckpointStorageWorkerView checkpointStorage;
     private final String taskName;
@@ -197,6 +202,11 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
                         taskName, env.getTaskInfo().getIndexOfThisSubtask(), checkpointStorage);
         writer.open();
         return writer;
+    }
+
+    @Override
+    public void setEnableCheckpointAfterTasksFinished(boolean enableCheckpointAfterTasksFinished) {
+        this.enableCheckpointAfterTasksFinished = enableCheckpointAfterTasksFinished;
     }
 
     @Override
@@ -395,6 +405,31 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
         }
     }
 
+    public void waitForPendingCheckpoints() throws Exception {
+        if (!enableCheckpointAfterTasksFinished) {
+            return;
+        }
+
+        List<AsyncCheckpointRunnable> asyncCheckpointRunnables;
+        synchronized (lock) {
+            asyncCheckpointRunnables = new ArrayList<>(checkpoints.values());
+        }
+
+        // Waits for each checkpoint independently.
+        asyncCheckpointRunnables.forEach(
+                ar -> {
+                    try {
+                        ar.getFinishedFuture().get();
+                    } catch (Exception e) {
+                        LOG.debug(
+                                "Async runnable for checkpoint "
+                                        + ar.getCheckpointId()
+                                        + " throws exception and exit",
+                                e);
+                    }
+                });
+    }
+
     @Override
     public void close() throws IOException {
         List<AsyncCheckpointRunnable> asyncCheckpointRunnables = null;
@@ -515,32 +550,26 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             Map<OperatorID, OperatorSnapshotFutures> snapshotFutures,
             CheckpointMetaData metadata,
             CheckpointMetricsBuilder metrics,
-            Supplier<Boolean> isRunning) {
-        // we are transferring ownership over snapshotInProgressList for cleanup to the thread,
-        // active on submit
-        asyncOperationsThreadPool.execute(
+            Supplier<Boolean> isRunning)
+            throws IOException {
+        AsyncCheckpointRunnable asyncCheckpointRunnable =
                 new AsyncCheckpointRunnable(
                         snapshotFutures,
                         metadata,
                         metrics,
                         System.nanoTime(),
                         taskName,
-                        registerConsumer(),
                         unregisterConsumer(),
                         env,
                         asyncExceptionHandler,
-                        isRunning));
-    }
+                        isRunning);
 
-    private Consumer<AsyncCheckpointRunnable> registerConsumer() {
-        return asyncCheckpointRunnable -> {
-            try {
-                registerAsyncCheckpointRunnable(
-                        asyncCheckpointRunnable.getCheckpointId(), asyncCheckpointRunnable);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        };
+        registerAsyncCheckpointRunnable(
+                asyncCheckpointRunnable.getCheckpointId(), asyncCheckpointRunnable);
+
+        // we are transferring ownership over snapshotInProgressList for cleanup to the thread,
+        // active on submit
+        asyncOperationsThreadPool.execute(asyncCheckpointRunnable);
     }
 
     private Consumer<AsyncCheckpointRunnable> unregisterConsumer() {
@@ -559,7 +588,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 
         for (final StreamOperatorWrapper<?, ?> operatorWrapper :
                 operatorChain.getAllOperators(true)) {
-            if (operatorWrapper.isClosed()) {
+            if (!enableCheckpointAfterTasksFinished && operatorWrapper.isClosed()) {
                 env.declineCheckpoint(
                         checkpointMetaData.getCheckpointId(),
                         new CheckpointException(

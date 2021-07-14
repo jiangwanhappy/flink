@@ -686,14 +686,14 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
         operator.notifyCheckpointComplete(checkpointId);
     }
 
-    /** Calls close and dispose on the operator. */
+    /** Calls finish and close on the operator. */
     public void close() throws Exception {
-        operator.close();
-        operator.dispose();
         if (processingTimeService != null) {
             processingTimeService.shutdownService();
         }
         setupCalled = false;
+        operator.finish();
+        operator.close();
 
         if (internalEnvironment.isPresent()) {
             internalEnvironment.get().close();
@@ -757,11 +757,6 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
     }
 
     @VisibleForTesting
-    public StreamStatus getStreamStatus() {
-        return mockTask.getStreamStatusMaintainer().getStreamStatus();
-    }
-
-    @VisibleForTesting
     public TaskMailbox getTaskMailbox() {
         return taskMailbox;
     }
@@ -788,6 +783,11 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
         @Override
         public void emitWatermark(Watermark mark) {
             outputList.add(mark);
+        }
+
+        @Override
+        public void emitStreamStatus(StreamStatus streamStatus) {
+            outputList.add(streamStatus);
         }
 
         @Override

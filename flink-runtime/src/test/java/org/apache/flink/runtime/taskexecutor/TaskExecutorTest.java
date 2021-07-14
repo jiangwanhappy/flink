@@ -36,9 +36,6 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
-import org.apache.flink.runtime.concurrent.Executors;
-import org.apache.flink.runtime.concurrent.FutureUtils;
-import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptorBuilder;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
@@ -107,6 +104,9 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.TimeUtils;
+import org.apache.flink.util.concurrent.Executors;
+import org.apache.flink.util.concurrent.FutureUtils;
+import org.apache.flink.util.concurrent.ScheduledExecutor;
 import org.apache.flink.util.function.FunctionUtils;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
@@ -214,6 +214,7 @@ public class TaskExecutorTest extends TestLogger {
                 new BlobCacheService(new Configuration(), new VoidBlobStore(), null);
 
         configuration = new Configuration();
+        TaskExecutorResourceUtils.adjustForLocalExecution(configuration);
 
         unresolvedTaskManagerLocation = new LocalUnresolvedTaskManagerLocation();
         jobId = new JobID();
@@ -2155,14 +2156,17 @@ public class TaskExecutorTest extends TestLogger {
     @Test(timeout = 10000L)
     public void testLogNotFoundHandling() throws Throwable {
         final int dataPort = NetUtils.getAvailablePort();
-        Configuration config = new Configuration();
-        config.setInteger(NettyShuffleEnvironmentOptions.DATA_PORT, dataPort);
-        config.setInteger(NettyShuffleEnvironmentOptions.NETWORK_REQUEST_BACKOFF_INITIAL, 100);
-        config.setInteger(NettyShuffleEnvironmentOptions.NETWORK_REQUEST_BACKOFF_MAX, 200);
-        config.setString(ConfigConstants.TASK_MANAGER_LOG_PATH_KEY, "/i/dont/exist");
+        configuration.setInteger(NettyShuffleEnvironmentOptions.DATA_PORT, dataPort);
+        configuration.setInteger(
+                NettyShuffleEnvironmentOptions.NETWORK_REQUEST_BACKOFF_INITIAL, 100);
+        configuration.setInteger(NettyShuffleEnvironmentOptions.NETWORK_REQUEST_BACKOFF_MAX, 200);
+        configuration.setString(ConfigConstants.TASK_MANAGER_LOG_PATH_KEY, "/i/dont/exist");
 
         try (TaskSubmissionTestEnvironment env =
-                new Builder(jobId).setConfiguration(config).setLocalCommunication(false).build()) {
+                new Builder(jobId)
+                        .setConfiguration(configuration)
+                        .setLocalCommunication(false)
+                        .build()) {
             TaskExecutorGateway tmGateway = env.getTaskExecutorGateway();
             try {
                 CompletableFuture<TransientBlobKey> logFuture =
@@ -2178,7 +2182,8 @@ public class TaskExecutorTest extends TestLogger {
 
     @Test(timeout = 10000L)
     public void testTerminationOnFatalError() throws Throwable {
-        try (TaskSubmissionTestEnvironment env = new Builder(jobId).build()) {
+        try (TaskSubmissionTestEnvironment env =
+                new Builder(jobId).setConfiguration(configuration).build()) {
             String testExceptionMsg = "Test exception of fatal error.";
 
             env.getTaskExecutor().onFatalError(new Exception(testExceptionMsg));

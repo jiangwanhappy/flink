@@ -21,14 +21,14 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.CheckpointType.PostCheckpointAction;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
-import org.apache.flink.runtime.concurrent.FutureUtils;
-import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
+import org.apache.flink.runtime.executiongraph.IntermediateResult;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -51,6 +51,8 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.clock.Clock;
 import org.apache.flink.util.clock.SystemClock;
+import org.apache.flink.util.concurrent.FutureUtils;
+import org.apache.flink.util.concurrent.ScheduledExecutor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +82,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
@@ -170,7 +173,7 @@ public class CheckpointCoordinator {
 
     private final boolean unalignedCheckpointsEnabled;
 
-    private final long alignmentTimeout;
+    private final long alignedCheckpointTimeout;
 
     /** Actor that receives status updates from the execution graph this coordinator works for. */
     private JobStatusListener jobStatusListener;
@@ -205,6 +208,9 @@ public class CheckpointCoordinator {
     private SharedStateRegistry sharedStateRegistry;
 
     private boolean isPreferCheckpointForRecovery;
+
+    /** Id of checkpoint for which in-flight data should be ignored on recovery. */
+    private final long checkpointIdOfIgnoredInFlightData;
 
     private final CheckpointFailureManager failureManager;
 
@@ -308,7 +314,8 @@ public class CheckpointCoordinator {
         this.clock = checkNotNull(clock);
         this.isExactlyOnceMode = chkConfig.isExactlyOnce();
         this.unalignedCheckpointsEnabled = chkConfig.isUnalignedCheckpointsEnabled();
-        this.alignmentTimeout = chkConfig.getAlignmentTimeout();
+        this.alignedCheckpointTimeout = chkConfig.getAlignedCheckpointTimeout();
+        this.checkpointIdOfIgnoredInFlightData = chkConfig.getCheckpointIdOfIgnoredInFlightData();
 
         this.recentPendingCheckpoints = new ArrayDeque<>(NUM_GHOST_CHECKPOINT_IDS);
         this.masterHooks = new HashMap<>();
@@ -820,7 +827,7 @@ public class CheckpointCoordinator {
                         checkpointStorageLocation.getLocationReference(),
                         isExactlyOnceMode,
                         unalignedCheckpointsEnabled,
-                        alignmentTimeout);
+                        alignedCheckpointTimeout);
 
         // send the messages to the tasks that trigger their checkpoint
         for (Execution execution : tasksToTrigger) {
@@ -1244,11 +1251,12 @@ public class CheckpointCoordinator {
         lastCheckpointCompletionRelativeTime = clock.relativeTimeMillis();
 
         LOG.info(
-                "Completed checkpoint {} for job {} ({} bytes in {} ms).",
+                "Completed checkpoint {} for job {} ({} bytes, checkpointDuration={} ms, finalizationTime={} ms).",
                 checkpointId,
                 job,
                 completedCheckpoint.getStateSize(),
-                completedCheckpoint.getDuration());
+                completedCheckpoint.getCompletionTimestamp() - completedCheckpoint.getTimestamp(),
+                System.currentTimeMillis() - completedCheckpoint.getCompletionTimestamp());
 
         if (LOG.isDebugEnabled()) {
             StringBuilder builder = new StringBuilder();
@@ -1553,7 +1561,9 @@ public class CheckpointCoordinator {
             LOG.info("Restoring job {} from {}.", job, latest);
 
             // re-assign the task states
-            final Map<OperatorID, OperatorState> operatorStates = latest.getOperatorStates();
+            final Map<OperatorID, OperatorState> operatorStates = extractOperatorStates(latest);
+
+            validateFinishedOperators(tasks, operatorStates);
 
             StateAssignmentOperation stateAssignmentOperation =
                     new StateAssignmentOperation(
@@ -1593,6 +1603,119 @@ public class CheckpointCoordinator {
 
             return OptionalLong.of(latest.getCheckpointID());
         }
+    }
+
+    private static class VerticesFinishedCache {
+
+        private final Map<JobVertexID, Boolean> finishedCache = new HashMap<>();
+        private final Map<OperatorID, OperatorState> operatorStates;
+
+        private VerticesFinishedCache(Map<OperatorID, OperatorState> operatorStates) {
+            this.operatorStates = operatorStates;
+        }
+
+        public boolean getOrUpdate(ExecutionJobVertex vertex) {
+            return finishedCache.computeIfAbsent(
+                    vertex.getJobVertexId(),
+                    ignored -> calculateIfFinished(vertex, operatorStates));
+        }
+
+        private boolean calculateIfFinished(
+                ExecutionJobVertex vertex, Map<OperatorID, OperatorState> operatorStates) {
+            List<Boolean> operatorFinishedStates =
+                    vertex.getOperatorIDs().stream()
+                            .map(idPair -> checkOperatorFinished(operatorStates, idPair))
+                            .collect(Collectors.toList());
+
+            boolean anyFinished = operatorFinishedStates.stream().anyMatch(f -> f);
+            if (!anyFinished) {
+                return false;
+            } else {
+                boolean allFinished = operatorFinishedStates.stream().allMatch(f -> f);
+                if (!allFinished) {
+                    throw new FlinkRuntimeException(
+                            "Can not restore vertex "
+                                    + vertex.getName()
+                                    + "("
+                                    + vertex.getJobVertexId()
+                                    + ")"
+                                    + " which contain both finished and unfinished operators");
+                }
+                return true;
+            }
+        }
+
+        private boolean checkOperatorFinished(
+                Map<OperatorID, OperatorState> operatorStates, OperatorIDPair idPair) {
+            OperatorID operatorId =
+                    idPair.getUserDefinedOperatorID().orElse(idPair.getGeneratedOperatorID());
+            return Optional.ofNullable(operatorStates.get(operatorId))
+                    .map(OperatorState::isFullyFinished)
+                    .orElse(false);
+        }
+    }
+
+    private void validateFinishedOperators(
+            Set<ExecutionJobVertex> tasks, Map<OperatorID, OperatorState> operatorStates) {
+
+        VerticesFinishedCache verticesFinishedCache = new VerticesFinishedCache(operatorStates);
+        for (ExecutionJobVertex task : tasks) {
+            boolean vertexFinished = verticesFinishedCache.getOrUpdate(task);
+
+            if (vertexFinished) {
+                boolean allPredecessorsFinished =
+                        task.getInputs().stream()
+                                .map(IntermediateResult::getProducer)
+                                .allMatch(verticesFinishedCache::getOrUpdate);
+
+                if (!allPredecessorsFinished) {
+                    throw new FlinkRuntimeException(
+                            "Illegal JobGraph modification. Cannot run a program with finished"
+                                    + " vertices predeceased with running ones. Task vertex "
+                                    + task.getName()
+                                    + "("
+                                    + task.getJobVertexId()
+                                    + ")"
+                                    + " has a running predecessor");
+                }
+            }
+        }
+    }
+
+    private Map<OperatorID, OperatorState> extractOperatorStates(CompletedCheckpoint checkpoint) {
+        Map<OperatorID, OperatorState> originalOperatorStates = checkpoint.getOperatorStates();
+
+        if (checkpoint.getCheckpointID() != checkpointIdOfIgnoredInFlightData) {
+            // Don't do any changes if it is not required.
+            return originalOperatorStates;
+        }
+
+        HashMap<OperatorID, OperatorState> newStates = new HashMap<>();
+        // Create the new operator states without in-flight data.
+        for (OperatorState originalOperatorState : originalOperatorStates.values()) {
+            OperatorState newState =
+                    new OperatorState(
+                            originalOperatorState.getOperatorID(),
+                            originalOperatorState.getParallelism(),
+                            originalOperatorState.getMaxParallelism());
+
+            newStates.put(newState.getOperatorID(), newState);
+
+            for (Map.Entry<Integer, OperatorSubtaskState> originalSubtaskStateEntry :
+                    originalOperatorState.getSubtaskStates().entrySet()) {
+
+                newState.putState(
+                        originalSubtaskStateEntry.getKey(),
+                        originalSubtaskStateEntry
+                                .getValue()
+                                .toBuilder()
+                                .setResultSubpartitionState(StateObjectCollection.empty())
+                                .setInputChannelState(StateObjectCollection.empty())
+                                .build());
+            }
+        }
+
+        return newStates;
     }
 
     /**

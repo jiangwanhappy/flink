@@ -32,7 +32,6 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
-import org.apache.flink.streaming.runtime.streamstatus.StreamStatusProvider;
 import org.apache.flink.streaming.runtime.tasks.WatermarkGaugeExposingOutput;
 import org.apache.flink.util.OutputTag;
 
@@ -48,20 +47,19 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
 
     private SerializationDelegate<StreamElement> serializationDelegate;
 
-    private final StreamStatusProvider streamStatusProvider;
-
     private final boolean supportsUnalignedCheckpoints;
 
     private final OutputTag outputTag;
 
     private final WatermarkGauge watermarkGauge = new WatermarkGauge();
 
+    private StreamStatus announcedStatus = StreamStatus.ACTIVE;
+
     @SuppressWarnings("unchecked")
     public RecordWriterOutput(
             RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter,
             TypeSerializer<OUT> outSerializer,
             OutputTag outputTag,
-            StreamStatusProvider streamStatusProvider,
             boolean supportsUnalignedCheckpoints) {
 
         checkNotNull(recordWriter);
@@ -75,10 +73,8 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
                 new StreamElementSerializer<>(outSerializer);
 
         if (outSerializer != null) {
-            serializationDelegate = new SerializationDelegate<StreamElement>(outRecordSerializer);
+            serializationDelegate = new SerializationDelegate<>(outRecordSerializer);
         }
-
-        this.streamStatusProvider = checkNotNull(streamStatusProvider);
 
         this.supportsUnalignedCheckpoints = supportsUnalignedCheckpoints;
     }
@@ -112,25 +108,30 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
 
     @Override
     public void emitWatermark(Watermark mark) {
+        if (announcedStatus.isIdle()) {
+            return;
+        }
+
         watermarkGauge.setCurrentWatermark(mark.getTimestamp());
         serializationDelegate.setInstance(mark);
-
-        if (streamStatusProvider.getStreamStatus().isActive()) {
-            try {
-                recordWriter.broadcastEmit(serializationDelegate);
-            } catch (Exception e) {
-                throw new RuntimeException(e.getMessage(), e);
-            }
-        }
-    }
-
-    public void emitStreamStatus(StreamStatus streamStatus) {
-        serializationDelegate.setInstance(streamStatus);
 
         try {
             recordWriter.broadcastEmit(serializationDelegate);
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void emitStreamStatus(StreamStatus streamStatus) {
+        if (!announcedStatus.equals(streamStatus)) {
+            announcedStatus = streamStatus;
+            serializationDelegate.setInstance(streamStatus);
+            try {
+                recordWriter.broadcastEmit(serializationDelegate);
+            } catch (Exception e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
         }
     }
 

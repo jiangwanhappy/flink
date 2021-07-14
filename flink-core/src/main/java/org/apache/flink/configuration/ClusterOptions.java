@@ -123,6 +123,26 @@ public class ClusterOptions {
                     .withDescription(
                             "Defines whether the cluster uses fine-grained resource management.");
 
+    @Documentation.ExcludeFromDocumentation
+    public static final ConfigOption<Boolean> FINE_GRAINED_SHUFFLE_MODE_ALL_BLOCKING =
+            ConfigOptions.key("fine-grained.shuffle-mode.all-blocking")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to convert all PIPELINE edges to BLOCKING when apply fine-grained resource management in batch jobs.");
+
+    @Documentation.Section(Documentation.Sections.EXPERT_CLUSTER)
+    public static final ConfigOption<UncaughtExceptionHandleMode> UNCAUGHT_EXCEPTION_HANDLING =
+            ConfigOptions.key("cluster.uncaught-exception-handling")
+                    .enumType(UncaughtExceptionHandleMode.class)
+                    .defaultValue(UncaughtExceptionHandleMode.LOG)
+                    .withDescription(
+                            String.format(
+                                    "Defines whether cluster will handle any uncaught exceptions "
+                                            + "by just logging them (%s mode), or by failing job (%s mode)",
+                                    UncaughtExceptionHandleMode.LOG.name(),
+                                    UncaughtExceptionHandleMode.FAIL.name()));
+
     public static JobManagerOptions.SchedulerType getSchedulerType(Configuration configuration) {
         if (isAdaptiveSchedulerEnabled(configuration) || isReactiveModeEnabled(configuration)) {
             return JobManagerOptions.SchedulerType.Adaptive;
@@ -187,5 +207,11 @@ public class ClusterOptions {
         public String getDescription() {
             return description;
         }
+    }
+
+    /** @see ClusterOptions#UNCAUGHT_EXCEPTION_HANDLING */
+    public enum UncaughtExceptionHandleMode {
+        LOG,
+        FAIL
     }
 }

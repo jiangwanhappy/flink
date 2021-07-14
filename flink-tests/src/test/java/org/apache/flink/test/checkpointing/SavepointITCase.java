@@ -41,7 +41,6 @@ import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.client.JobExecutionException;
-import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobGraphTestUtils;
@@ -57,10 +56,10 @@ import org.apache.flink.runtime.rest.messages.job.JobDetailsInfo;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
-import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.runtime.testtasks.BlockingNoOpInvokable;
 import org.apache.flink.runtime.testutils.CommonTestUtils;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
+import org.apache.flink.runtime.testutils.TestingUtils;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.checkpoint.ListCheckpointed;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -76,12 +75,12 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
-import org.apache.flink.test.util.TestUtils;
 import org.apache.flink.testutils.EntropyInjectingTestFileSystem;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -123,6 +122,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
 import static org.apache.flink.core.testutils.FlinkMatchers.containsMessage;
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureReason.CHECKPOINT_COORDINATOR_SHUTDOWN;
+import static org.apache.flink.runtime.testutils.CommonTestUtils.waitForAllTaskRunning;
 import static org.apache.flink.test.util.TestUtils.submitJobAndWaitForResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -300,6 +300,7 @@ public class SavepointITCase extends TestLogger {
         try {
             client.submitJob(jobGraph).get();
 
+            waitForAllTaskRunning(cluster.getMiniCluster(), jobId);
             StatefulCounter.getProgressLatch().await();
 
             return client.cancelWithSavepoint(jobId, null).get();
@@ -431,9 +432,8 @@ public class SavepointITCase extends TestLogger {
 
         try {
             client.submitJob(graph).get();
-            // triggerSavepoint is only available after job is initialized
-            TestUtils.waitUntilJobInitializationFinished(
-                    graph.getJobID(), cluster, ClassLoader.getSystemClassLoader());
+            // triggerSavepoint is only available after all tasks are running
+            waitForAllTaskRunning(cluster.getMiniCluster(), graph.getJobID());
 
             client.triggerSavepoint(graph.getJobID(), null).get();
 
@@ -854,6 +854,7 @@ public class SavepointITCase extends TestLogger {
             JobID jobID = client.submitJob(originalJobGraph).get();
 
             // wait for the Tasks to be ready
+            waitForAllTaskRunning(cluster.getMiniCluster(), jobID);
             assertTrue(
                     StatefulCounter.getProgressLatch()
                             .await(deadline.timeLeft().toMillis(), TimeUnit.MILLISECONDS));
@@ -1193,6 +1194,9 @@ public class SavepointITCase extends TestLogger {
         String savepointPath = null;
         try {
             client.submitJob(jobGraph).get();
+
+            waitForAllTaskRunning(cluster.getMiniCluster(), jobGraph.getJobID());
+
             for (OneShotLatch latch : iterTestSnapshotWait) {
                 latch.await();
             }

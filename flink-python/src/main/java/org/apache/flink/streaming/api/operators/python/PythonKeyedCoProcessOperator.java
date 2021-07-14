@@ -25,6 +25,7 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.ManagedMemoryUseCase;
+import org.apache.flink.fnexecution.v1.FlinkFnApi;
 import org.apache.flink.python.PythonFunctionRunner;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
@@ -44,17 +45,13 @@ import org.apache.flink.types.Row;
 
 import java.util.Collections;
 
+import static org.apache.flink.python.Constants.STATEFUL_FUNCTION_URN;
 import static org.apache.flink.streaming.api.utils.PythonOperatorUtils.inBatchExecutionMode;
 
 /** KeyedCoProcessOperator. */
 public class PythonKeyedCoProcessOperator<OUT>
         extends TwoInputPythonFunctionOperator<Row, Row, Row, OUT>
         implements ResultTypeQueryable<OUT>, Triggerable<Row, VoidNamespace> {
-
-    private static final String KEYED_CO_PROCESS_FUNCTION_URN =
-            "flink:transform:keyed_process_function:v1";
-
-    private static final String FLAT_MAP_CODER_URN = "flink:coder:flat_map:v1";
 
     /** The TypeInformation of current key. */
     private final TypeInformation<Row> keyTypeInfo;
@@ -81,11 +78,11 @@ public class PythonKeyedCoProcessOperator<OUT>
         super(
                 config,
                 pythonFunctionInfo,
-                FLAT_MAP_CODER_URN,
                 KeyedTwoInputWithTimerRowFactory.getRunnerInputTypeInfo(
                         inputTypeInfo1, inputTypeInfo2, constructKeyTypeInfo(inputTypeInfo1)),
                 OutputWithTimerRowHandler.getRunnerOutputTypeInfo(
-                        outputTypeInfo, constructKeyTypeInfo(inputTypeInfo1)));
+                        outputTypeInfo, constructKeyTypeInfo(inputTypeInfo1)),
+                FlinkFnApi.CoderParam.OutputMode.MULTIPLE_WITH_END);
         this.keyTypeInfo = constructKeyTypeInfo(inputTypeInfo1);
         this.keyTypeSerializer =
                 PythonTypeUtils.TypeInfoToSerializerConverter.typeInfoSerializerConverter(
@@ -100,14 +97,13 @@ public class PythonKeyedCoProcessOperator<OUT>
                 createPythonEnvironmentManager(),
                 getRunnerInputTypeInfo(),
                 getRunnerOutputTypeInfo(),
-                KEYED_CO_PROCESS_FUNCTION_URN,
+                STATEFUL_FUNCTION_URN,
                 PythonOperatorUtils.getUserDefinedDataStreamStatefulFunctionProto(
                         getPythonFunctionInfo(),
                         getRuntimeContext(),
                         Collections.EMPTY_MAP,
                         keyTypeInfo,
                         inBatchExecutionMode(getKeyedStateBackend())),
-                getCoderUrn(),
                 getJobOptions(),
                 getFlinkMetricContainer(),
                 getKeyedStateBackend(),
@@ -124,7 +120,10 @@ public class PythonKeyedCoProcessOperator<OUT>
                                 getContainingTask()
                                         .getEnvironment()
                                         .getUserCodeClassLoader()
-                                        .asClassLoader()));
+                                        .asClassLoader()),
+                FlinkFnApi.CoderParam.DataType.FLATTEN_ROW,
+                FlinkFnApi.CoderParam.DataType.RAW,
+                FlinkFnApi.CoderParam.OutputMode.MULTIPLE_WITH_END);
     }
 
     @Override

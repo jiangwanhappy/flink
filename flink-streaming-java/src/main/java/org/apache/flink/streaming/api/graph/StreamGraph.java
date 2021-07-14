@@ -59,6 +59,7 @@ import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
 import org.apache.flink.streaming.runtime.tasks.TwoInputStreamTask;
 import org.apache.flink.util.OutputTag;
+import org.apache.flink.util.TernaryBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,6 +118,7 @@ public class StreamGraph implements Pipeline {
     protected Map<Integer, String> vertexIDtoBrokerID;
     protected Map<Integer, Long> vertexIDtoLoopTimeout;
     private StateBackend stateBackend;
+    private TernaryBoolean changelogStateBackendEnabled;
     private CheckpointStorage checkpointStorage;
     private Path savepointDir;
     private Set<Tuple2<StreamNode, StreamNode>> iterationSourceSinkPairs;
@@ -185,6 +187,14 @@ public class StreamGraph implements Pipeline {
         return this.stateBackend;
     }
 
+    public void setChangelogStateBackendEnabled(TernaryBoolean changelogStateBackendEnabled) {
+        this.changelogStateBackendEnabled = changelogStateBackendEnabled;
+    }
+
+    public TernaryBoolean isChangelogStateBackendEnabled() {
+        return changelogStateBackendEnabled;
+    }
+
     public void setCheckpointStorage(CheckpointStorage checkpointStorage) {
         this.checkpointStorage = checkpointStorage;
     }
@@ -241,6 +251,11 @@ public class StreamGraph implements Pipeline {
 
     public Optional<ResourceProfile> getSlotSharingGroupResource(String groupId) {
         return Optional.ofNullable(slotSharingGroupResources.get(groupId));
+    }
+
+    public boolean hasFineGrainedResource() {
+        return slotSharingGroupResources.values().stream()
+                .anyMatch(resourceProfile -> !resourceProfile.equals(ResourceProfile.UNKNOWN));
     }
 
     /**

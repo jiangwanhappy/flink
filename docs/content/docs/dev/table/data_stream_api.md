@@ -831,7 +831,7 @@ from the DataStream API (which would be `RAW` in the Table API) with proper data
 
 Since `DataType` is richer than `TypeInformation`, we can easily enable immutable POJOs and other complex
 data structures. The following example in Java shows what is possible. Check also the
-[Data Types & Serialization]({{< ref "docs/dev/serialization/types_serialization" >}}) page of
+[Data Types & Serialization]({{< ref "docs/dev/datastream/fault-tolerance/serialization/types_serialization" >}}) page of
 the DataStream API for more information about the supported types there.
 
 ```java
@@ -1135,14 +1135,16 @@ import org.apache.flink.table.api.DataTypes
 case class User(name: String, score: java.lang.Integer, event_time: java.time.Instant)
 
 tableEnv.executeSql(
-    "CREATE TABLE GeneratedTable "
-    + "("
-    + "  name STRING,"
-    + "  score INT,"
-    + "  event_time TIMESTAMP_LTZ(3),"
-    + "  WATERMARK FOR event_time AS event_time - INTERVAL '10' SECOND"
-    + ")"
-    + "WITH ('connector'='datagen')")
+  """
+  CREATE TABLE GeneratedTable (
+    name STRING,
+    score INT,
+    event_time TIMESTAMP_LTZ(3),
+    WATERMARK FOR event_time AS event_time - INTERVAL '10' SECOND
+  )
+  WITH ('connector'='datagen')
+  """
+)
 
 val table = tableEnv.from("GeneratedTable")
 
@@ -1166,7 +1168,7 @@ val dataStream: DataStream[Row] = tableEnv.toDataStream(table)
 // since `event_time` is a single rowtime attribute, it is inserted into the DataStream
 // metadata and watermarks are propagated
 
-val dataStream: DataStream[User] = tableEnv.toDataStream(table, User.class)
+val dataStream: DataStream[User] = tableEnv.toDataStream(table, classOf[User])
 
 // data types can be extracted reflectively as above or explicitly defined
 
@@ -1174,7 +1176,7 @@ val dataStream: DataStream[User] =
     tableEnv.toDataStream(
         table,
         DataTypes.STRUCTURED(
-            User.class,
+            classOf[User],
             DataTypes.FIELD("name", DataTypes.STRING()),
             DataTypes.FIELD("score", DataTypes.INT()),
             DataTypes.FIELD("event_time", DataTypes.TIMESTAMP_LTZ(3))))
@@ -1184,8 +1186,9 @@ val dataStream: DataStream[User] =
 
 Note that only non-updating tables are supported by `toDataStream`. Usually, time-based operations
 such as windows, interval joins, or the `MATCH_RECOGNIZE` clause are a good fit for insert-only
-pipelines next to simple operations like projections and filters. Pipelines with operations that
-produce updates can use `toChangelogStream`.
+pipelines next to simple operations like projections and filters.
+
+Pipelines with operations that produce updates can use `toChangelogStream`.
 
 {{< top >}}
 
@@ -1546,14 +1549,16 @@ import java.time.Instant
 
 // create Table with event-time
 tableEnv.executeSql(
-    "CREATE TABLE GeneratedTable "
-    + "("
-    + "  name STRING,"
-    + "  score INT,"
-    + "  event_time TIMESTAMP_LTZ(3),"
-    + "  WATERMARK FOR event_time AS event_time - INTERVAL '10' SECOND"
-    + ")"
-    + "WITH ('connector'='datagen')")
+  """
+  CREATE TABLE GeneratedTable (
+    name STRING,
+    score INT,
+    event_time TIMESTAMP_LTZ(3),
+    WATERMARK FOR event_time AS event_time - INTERVAL '10' SECOND
+  )
+  WITH ('connector'='datagen')
+  """
+)
 
 val table = tableEnv.from("GeneratedTable")
 
@@ -1672,6 +1677,49 @@ For more information about which conversions are supported for data types in Exa
 The behavior of `toChangelogStream(Table).executeAndCollect()` is equal to calling `Table.execute().collect()`.
 However, `toChangelogStream(Table)` might be more useful for tests because it allows to access the produced
 watermarks in a subsequent `ProcessFunction` in DataStream API.
+
+{{< top >}}
+
+Implicit Conversions in Scala
+-----------------------------
+
+Users of the Scala API can use all the conversion methods above in a more fluent way by leveraging
+Scala's *implicit* feature.
+
+Those implicits are available in the API when importing the package object via `org.apache.flink.table.api.bridge.scala._`.
+
+If enabled, methods such as `toTable` or `toChangelogTable` can be called directly on a `DataStream`
+object. Similarly, `toDataStream` and `toChangelogStream` are available on `Table` objects. Furthermore,
+`Table` objects will be converted to a changelog stream when requesting a DataStream API specific
+method for `DataStream[Row]`.
+
+{{< hint warning >}}
+The use of an implicit conversion should always be a conscious decision. One should pay attention whether
+the IDE proposes an actual Table API method, or a DataStream API method via implicits.
+
+For example, a `table.execute().collect()` stays in Table API whereas `table.executeAndCollect()` implicitly
+uses the DataStream API's `executeAndCollect()` method and therefore forces an API conversion.
+{{< /hint >}}
+
+```scala
+import org.apache.flink.streaming.api.scala._
+import org.apache.flink.table.api.bridge.scala._
+import org.apache.flink.types.Row
+
+val env = StreamExecutionEnvironment.getExecutionEnvironment
+val tableEnv = StreamTableEnvironment.create(env)
+
+val dataStream: DataStream[(Int, String)] = env.fromElements((42, "hello"))
+
+// call toChangelogTable() implicitly on the DataStream object
+val table: Table = dataStream.toChangelogTable(tableEnv)
+
+// force implicit conversion
+val dataStreamAgain1: DataStream[Row] = table
+
+// call toChangelogStream() implicitly on the Table object
+val dataStreamAgain2: DataStream[Row] = table.toChangelogStream
+```
 
 {{< top >}}
 
@@ -2035,7 +2083,7 @@ val table: Table = tableEnv.fromDataStream(stream, $"age" as "myAge", $"name" as
 
 #### POJO (Java and Scala)
 
-Flink supports POJOs as composite types. The rules for what determines a POJO are documented [here]({{< ref "docs/dev/serialization/types_serialization" >}}#pojos).
+Flink supports POJOs as composite types. The rules for what determines a POJO are documented [here]({{< ref "docs/dev/datastream/fault-tolerance/serialization/types_serialization" >}}#pojos).
 
 When converting a POJO `DataStream` into a `Table` without specifying field names, the names of the original POJO fields are used. The name mapping requires the original names and cannot be done by positions. Fields can be renamed using an alias (with the `as` keyword), reordered, and projected.
 

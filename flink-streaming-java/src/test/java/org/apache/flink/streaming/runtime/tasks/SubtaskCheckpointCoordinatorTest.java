@@ -58,6 +58,7 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskTest.NoOpStreamTask;
 import org.apache.flink.streaming.util.MockStreamTaskBuilder;
 import org.apache.flink.util.ExceptionUtils;
@@ -159,7 +160,8 @@ public class SubtaskCheckpointCoordinatorTest {
             final OperatorChain<?, ?> operatorChain =
                     new OperatorChain(
                             new MockStreamTaskBuilder(mockEnvironment).build(),
-                            new NonRecordWriter<>()) {
+                            new NonRecordWriter<>(),
+                            false) {
                         @Override
                         public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent)
                                 throws IOException {
@@ -195,7 +197,8 @@ public class SubtaskCheckpointCoordinatorTest {
             final OperatorChain<?, ?> operatorChain =
                     new OperatorChain(
                             new MockStreamTaskBuilder(mockEnvironment).build(),
-                            new NonRecordWriter<>()) {
+                            new NonRecordWriter<>(),
+                            false) {
                         @Override
                         public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent)
                                 throws IOException {
@@ -243,7 +246,9 @@ public class SubtaskCheckpointCoordinatorTest {
                             SAVEPOINT, CheckpointStorageLocationReference.getDefault()),
                     new CheckpointMetricsBuilder(),
                     new OperatorChain<>(
-                            new NoOpStreamTask<>(new DummyEnvironment()), new NonRecordWriter<>()),
+                            new NoOpStreamTask<>(new DummyEnvironment()),
+                            new NonRecordWriter<>(),
+                            false),
                     () -> true);
         }
     }
@@ -346,7 +351,8 @@ public class SubtaskCheckpointCoordinatorTest {
             OperatorChain<String, OneInputStreamOperator<String, String>> operatorChain =
                     new OperatorChain<>(
                             task,
-                            StreamTask.createRecordWriterDelegate(streamConfig, mockEnvironment));
+                            StreamTask.createRecordWriterDelegate(streamConfig, mockEnvironment),
+                            false);
             long checkpointId = 42L;
             // notify checkpoint aborted before execution.
             subtaskCheckpointCoordinator.notifyCheckpointAborted(
@@ -453,7 +459,7 @@ public class SubtaskCheckpointCoordinatorTest {
 
     private OperatorChain<?, ?> getOperatorChain(MockEnvironment mockEnvironment) throws Exception {
         return new OperatorChain<>(
-                new MockStreamTaskBuilder(mockEnvironment).build(), new NonRecordWriter<>());
+                new MockStreamTaskBuilder(mockEnvironment).build(), new NonRecordWriter<>(), false);
     }
 
     private <T> OperatorChain<T, AbstractStreamOperator<T>> operatorChain(
@@ -546,10 +552,10 @@ public class SubtaskCheckpointCoordinatorTest {
         public void open() throws Exception {}
 
         @Override
-        public void close() throws Exception {}
+        public void finish() throws Exception {}
 
         @Override
-        public void dispose() {}
+        public void close() throws Exception {}
 
         @Override
         public void prepareSnapshotPreBarrier(long checkpointId) {}
@@ -607,6 +613,9 @@ public class SubtaskCheckpointCoordinatorTest {
 
         @Override
         public void processLatencyMarker(LatencyMarker latencyMarker) {}
+
+        @Override
+        public void processStreamStatus(StreamStatus streamStatus) throws Exception {}
     }
 
     private static SubtaskCheckpointCoordinator coordinator(

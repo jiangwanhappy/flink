@@ -77,8 +77,8 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.AVRO_CONFLUENT;
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.DEBEZIUM_AVRO_CONFLUENT;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaConnectorOptionsUtil.AVRO_CONFLUENT;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaConnectorOptionsUtil.DEBEZIUM_AVRO_CONFLUENT;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSink;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSource;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -251,7 +251,7 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
                             options.put("topic-pattern", TOPIC_REGEX);
                             options.put(
                                     "scan.startup.mode",
-                                    KafkaOptions.SCAN_STARTUP_MODE_VALUE_EARLIEST);
+                                    KafkaConnectorOptionsUtil.SCAN_STARTUP_MODE_VALUE_EARLIEST);
                             options.remove("scan.startup.specific-offsets");
                         });
         final DynamicTableSource actualSource = createTableSource(SCHEMA, modifiedOptions);
@@ -484,7 +484,7 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("format", "debezium-avro-confluent");
-                    options.put("debezium-avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("debezium-avro-confluent.url", TEST_REGISTRY_URL);
                 },
                 DEFAULT_VALUE_SUBJECT,
                 "N/A");
@@ -493,7 +493,7 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
                 },
                 DEFAULT_VALUE_SUBJECT,
                 "N/A");
@@ -502,9 +502,9 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.fields", NAME);
                 },
                 DEFAULT_VALUE_SUBJECT,
@@ -514,7 +514,7 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.format", "csv");
                     options.put("key.fields", NAME);
                 },
@@ -526,7 +526,7 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
                 options -> {
                     options.put("value.format", "json");
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.fields", NAME);
                 },
                 "N/A",
@@ -536,8 +536,8 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("format", "debezium-avro-confluent");
-                    options.put("debezium-avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
-                    options.put("debezium-avro-confluent.schema-registry.subject", "sub1");
+                    options.put("debezium-avro-confluent.url", TEST_REGISTRY_URL);
+                    options.put("debezium-avro-confluent.subject", "sub1");
                 },
                 "sub1",
                 "N/A");
@@ -546,10 +546,10 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("format", "avro-confluent");
-                    options.put("avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
-                    options.put("key.avro-confluent.schema-registry.subject", "sub2");
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.subject", "sub2");
                     options.put("key.fields", NAME);
                 },
                 DEFAULT_VALUE_SUBJECT,
@@ -571,8 +571,9 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         final RowType rowType = (RowType) SCHEMA_DATA_TYPE.getLogicalType();
         final String valueFormat =
                 options.getOrDefault(
-                        FactoryUtil.FORMAT.key(), options.get(KafkaOptions.VALUE_FORMAT.key()));
-        final String keyFormat = options.get(KafkaOptions.KEY_FORMAT.key());
+                        FactoryUtil.FORMAT.key(),
+                        options.get(KafkaConnectorOptions.VALUE_FORMAT.key()));
+        final String keyFormat = options.get(KafkaConnectorOptions.KEY_FORMAT.key());
 
         KafkaDynamicSink sink = (KafkaDynamicSink) createTableSink(SCHEMA, options);
         final Set<String> avroFormats = new HashSet<>();
@@ -943,8 +944,10 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         tableOptions.put("topic", TOPIC);
         tableOptions.put("properties.group.id", "dummy");
         tableOptions.put("properties.bootstrap.servers", "dummy");
-        tableOptions.put("sink.partitioner", KafkaOptions.SINK_PARTITIONER_VALUE_FIXED);
-        tableOptions.put("sink.semantic", KafkaOptions.SINK_SEMANTIC_VALUE_EXACTLY_ONCE);
+        tableOptions.put(
+                "sink.partitioner", KafkaConnectorOptionsUtil.SINK_PARTITIONER_VALUE_FIXED);
+        tableOptions.put(
+                "sink.semantic", KafkaConnectorOptionsUtil.SINK_SEMANTIC_VALUE_EXACTLY_ONCE);
         // Format options.
         tableOptions.put("format", TestFormatFactory.IDENTIFIER);
         final String formatDelimiterKey =
@@ -962,8 +965,10 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
         tableOptions.put("properties.group.id", "dummy");
         tableOptions.put("properties.bootstrap.servers", "dummy");
         tableOptions.put("scan.topic-partition-discovery.interval", DISCOVERY_INTERVAL);
-        tableOptions.put("sink.partitioner", KafkaOptions.SINK_PARTITIONER_VALUE_FIXED);
-        tableOptions.put("sink.semantic", KafkaOptions.SINK_SEMANTIC_VALUE_EXACTLY_ONCE);
+        tableOptions.put(
+                "sink.partitioner", KafkaConnectorOptionsUtil.SINK_PARTITIONER_VALUE_FIXED);
+        tableOptions.put(
+                "sink.semantic", KafkaConnectorOptionsUtil.SINK_SEMANTIC_VALUE_EXACTLY_ONCE);
         // Format options.
         tableOptions.put("key.format", TestFormatFactory.IDENTIFIER);
         tableOptions.put(
@@ -979,7 +984,8 @@ public class KafkaDynamicTableFactoryTest extends TestLogger {
                         TestFormatFactory.IDENTIFIER, TestFormatFactory.DELIMITER.key()),
                 "|");
         tableOptions.put(
-                "value.fields-include", KafkaOptions.ValueFieldsStrategy.EXCEPT_KEY.toString());
+                "value.fields-include",
+                KafkaConnectorOptions.ValueFieldsStrategy.EXCEPT_KEY.toString());
         return tableOptions;
     }
 }

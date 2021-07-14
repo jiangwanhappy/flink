@@ -53,6 +53,9 @@ public class TestSubtaskCheckpointCoordinator implements SubtaskCheckpointCoordi
     }
 
     @Override
+    public void setEnableCheckpointAfterTasksFinished(boolean enableCheckpointAfterTasksFinished) {}
+
+    @Override
     public void initInputsCheckpoint(long id, CheckpointOptions checkpointOptions) {
         channelStateWriter.start(id, checkpointOptions);
     }
@@ -88,6 +91,9 @@ public class TestSubtaskCheckpointCoordinator implements SubtaskCheckpointCoordi
     @Override
     public void notifyCheckpointAborted(
             long checkpointId, OperatorChain<?, ?> operatorChain, Supplier<Boolean> isRunning) {}
+
+    @Override
+    public void waitForPendingCheckpoints() throws Exception {}
 
     @Override
     public void close() {}

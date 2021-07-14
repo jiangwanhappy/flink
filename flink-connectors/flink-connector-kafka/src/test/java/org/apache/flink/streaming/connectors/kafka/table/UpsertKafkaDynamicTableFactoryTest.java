@@ -65,7 +65,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.AVRO_CONFLUENT;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaConnectorOptionsUtil.AVRO_CONFLUENT;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSink;
 import static org.apache.flink.table.factories.utils.FactoryMocks.createTableSource;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -267,9 +267,9 @@ public class UpsertKafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
                 },
                 DEFAULT_VALUE_SUBJECT,
                 DEFAULT_KEY_SUBJECT);
@@ -278,7 +278,7 @@ public class UpsertKafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.format", "csv");
                 },
                 DEFAULT_VALUE_SUBJECT,
@@ -289,7 +289,7 @@ public class UpsertKafkaDynamicTableFactoryTest extends TestLogger {
                 options -> {
                     options.put("value.format", "json");
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
                 },
                 "N/A",
                 DEFAULT_KEY_SUBJECT);
@@ -298,10 +298,10 @@ public class UpsertKafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
-                    options.put("key.avro-confluent.schema-registry.subject", "sub2");
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.subject", "sub2");
                 },
                 DEFAULT_VALUE_SUBJECT,
                 "sub2");
@@ -310,10 +310,10 @@ public class UpsertKafkaDynamicTableFactoryTest extends TestLogger {
         verifyEncoderSubject(
                 options -> {
                     options.put("value.format", "avro-confluent");
-                    options.put("value.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
-                    options.put("value.avro-confluent.schema-registry.subject", "sub1");
+                    options.put("value.avro-confluent.url", TEST_REGISTRY_URL);
+                    options.put("value.avro-confluent.subject", "sub1");
                     options.put("key.format", "avro-confluent");
-                    options.put("key.avro-confluent.schema-registry.url", TEST_REGISTRY_URL);
+                    options.put("key.avro-confluent.url", TEST_REGISTRY_URL);
                 },
                 "sub1",
                 DEFAULT_KEY_SUBJECT);
@@ -334,8 +334,9 @@ public class UpsertKafkaDynamicTableFactoryTest extends TestLogger {
         final RowType rowType = (RowType) SINK_SCHEMA.toSinkRowDataType().getLogicalType();
         final String valueFormat =
                 options.getOrDefault(
-                        FactoryUtil.FORMAT.key(), options.get(KafkaOptions.VALUE_FORMAT.key()));
-        final String keyFormat = options.get(KafkaOptions.KEY_FORMAT.key());
+                        FactoryUtil.FORMAT.key(),
+                        options.get(KafkaConnectorOptions.VALUE_FORMAT.key()));
+        final String keyFormat = options.get(KafkaConnectorOptions.KEY_FORMAT.key());
 
         KafkaDynamicSink sink = (KafkaDynamicSink) createTableSink(SINK_SCHEMA, options);
 

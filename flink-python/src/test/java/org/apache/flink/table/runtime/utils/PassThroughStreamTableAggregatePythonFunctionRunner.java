@@ -23,7 +23,7 @@ import org.apache.flink.fnexecution.v1.FlinkFnApi;
 import org.apache.flink.python.env.PythonEnvironmentManager;
 import org.apache.flink.python.metric.FlinkMetricContainer;
 import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.table.runtime.runners.python.beam.BeamTableStatefulPythonFunctionRunner;
+import org.apache.flink.table.runtime.runners.python.beam.BeamTablePythonFunctionRunner;
 import org.apache.flink.table.types.logical.RowType;
 
 import org.apache.beam.runners.fnexecution.control.JobBundleFactory;
@@ -41,7 +41,7 @@ import java.util.function.Function;
  * `processFunction`.
  */
 public class PassThroughStreamTableAggregatePythonFunctionRunner
-        extends BeamTableStatefulPythonFunctionRunner {
+        extends BeamTablePythonFunctionRunner {
 
     private final List<byte[]> buffer;
 
@@ -54,7 +54,6 @@ public class PassThroughStreamTableAggregatePythonFunctionRunner
             RowType outputType,
             String functionUrn,
             FlinkFnApi.UserDefinedAggregateFunctions userDefinedFunctions,
-            String coderUrn,
             Map<String, String> jobOptions,
             FlinkMetricContainer flinkMetricContainer,
             KeyedStateBackend keyedStateBackend,
@@ -67,7 +66,6 @@ public class PassThroughStreamTableAggregatePythonFunctionRunner
                 outputType,
                 functionUrn,
                 userDefinedFunctions,
-                coderUrn,
                 jobOptions,
                 flinkMetricContainer,
                 keyedStateBackend,
@@ -75,6 +73,8 @@ public class PassThroughStreamTableAggregatePythonFunctionRunner
                 null,
                 null,
                 0.0,
+                FlinkFnApi.CoderParam.DataType.ROW,
+                FlinkFnApi.CoderParam.DataType.ROW,
                 FlinkFnApi.CoderParam.OutputMode.MULTIPLE);
         this.buffer = new LinkedList<>();
         this.processFunction = processFunction;

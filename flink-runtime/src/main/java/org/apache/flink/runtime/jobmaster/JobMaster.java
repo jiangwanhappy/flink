@@ -31,7 +31,6 @@ import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
@@ -72,7 +71,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
-import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.rpc.RpcServiceUtils;
 import org.apache.flink.runtime.scheduler.ExecutionGraphInfo;
 import org.apache.flink.runtime.scheduler.SchedulerNG;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
@@ -89,6 +88,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.SerializedValue;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.slf4j.Logger;
 
@@ -223,7 +223,7 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
             long initializationTimestamp)
             throws Exception {
 
-        super(rpcService, AkkaRpcServiceUtils.createRandomName(JOB_MANAGER_NAME), jobMasterId);
+        super(rpcService, RpcServiceUtils.createRandomName(JOB_MANAGER_NAME), jobMasterId);
 
         final ExecutionDeploymentReconciliationHandler executionStateReconciliationHandler =
                 new ExecutionDeploymentReconciliationHandler() {

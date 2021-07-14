@@ -720,6 +720,7 @@ public class StreamingJobGraphGenerator {
         final CheckpointConfig checkpointCfg = streamGraph.getCheckpointConfig();
 
         config.setStateBackend(streamGraph.getStateBackend());
+        config.setChangelogStateBackendEnabled(streamGraph.isChangelogStateBackendEnabled());
         config.setCheckpointStorage(streamGraph.getCheckpointStorage());
         config.setSavepointDir(streamGraph.getSavepointDirectory());
         config.setGraphContainingLoops(streamGraph.isIterative());
@@ -727,7 +728,7 @@ public class StreamingJobGraphGenerator {
         config.setCheckpointingEnabled(checkpointCfg.isCheckpointingEnabled());
         config.setCheckpointMode(getCheckpointingMode(checkpointCfg));
         config.setUnalignedCheckpointsEnabled(checkpointCfg.isUnalignedCheckpointsEnabled());
-        config.setAlignmentTimeout(checkpointCfg.getAlignmentTimeout());
+        config.setAlignedCheckpointTimeout(checkpointCfg.getAlignedCheckpointTimeout());
 
         for (int i = 0; i < vertex.getStatePartitioners().length; i++) {
             config.setStatePartitioner(i, vertex.getStatePartitioners()[i]);
@@ -1312,9 +1313,13 @@ public class StreamingJobGraphGenerator {
                                 .setTolerableCheckpointFailureNumber(
                                         cfg.getTolerableCheckpointFailureNumber())
                                 .setUnalignedCheckpointsEnabled(cfg.isUnalignedCheckpointsEnabled())
-                                .setAlignmentTimeout(cfg.getAlignmentTimeout().toMillis())
+                                .setCheckpointIdOfIgnoredInFlightData(
+                                        cfg.getCheckpointIdOfIgnoredInFlightData())
+                                .setAlignedCheckpointTimeout(
+                                        cfg.getAlignedCheckpointTimeout().toMillis())
                                 .build(),
                         serializedStateBackend,
+                        streamGraph.isChangelogStateBackendEnabled(),
                         serializedCheckpointStorage,
                         serializedHooks);
 

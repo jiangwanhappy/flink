@@ -75,9 +75,9 @@ import static org.apache.flink.table.api.config.TableConfigOptions.TABLE_DML_SYN
 import static org.apache.flink.table.client.cli.CliClient.DEFAULT_TERMINAL_FACTORY;
 import static org.apache.flink.table.client.cli.CliStrings.MESSAGE_SQL_EXECUTION_ERROR;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 /** Tests for the {@link CliClient}. */
@@ -252,9 +252,7 @@ public class CliClientTest extends TestLogger {
                                 + ") WITH (\n"
                                 + "  'connector' = 'values'\n"
                                 + ");\n",
-                        "INSERT INTO \n"
-                                + "--COMMENT ; \n"
-                                + "MyOtherTable VALUES (1, 101), (2, 102);",
+                        "INSERT INTO \n" + "MyOtherTable VALUES (1, 101), (2, 102);",
                         "DESC MyOtherTable;",
                         "SHOW TABLES;",
                         "QUIT;\n");
@@ -519,6 +517,21 @@ public class CliClientTest extends TestLogger {
         @Override
         public void cancelQuery(String sessionId, String resultId) throws SqlExecutionException {
             // nothing to do
+        }
+
+        @Override
+        public void addJar(String sessionId, String jarUrl) {
+            throw new UnsupportedOperationException("Not implemented.");
+        }
+
+        @Override
+        public void removeJar(String sessionId, String jarUrl) {
+            throw new UnsupportedOperationException("Not implemented.");
+        }
+
+        @Override
+        public List<String> listJars(String sessionId) {
+            throw new UnsupportedOperationException("Not implemented.");
         }
     }
 }

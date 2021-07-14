@@ -21,7 +21,7 @@ package org.apache.flink.table.runtime.utils;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
 import org.apache.flink.python.env.PythonEnvironmentManager;
 import org.apache.flink.python.metric.FlinkMetricContainer;
-import org.apache.flink.table.runtime.runners.python.beam.BeamTableStatelessPythonFunctionRunner;
+import org.apache.flink.table.runtime.runners.python.beam.BeamTablePythonFunctionRunner;
 import org.apache.flink.table.types.logical.RowType;
 
 import org.apache.beam.runners.fnexecution.control.JobBundleFactory;
@@ -35,7 +35,7 @@ import java.util.Map;
  * A {@link PassThroughPythonScalarFunctionRunner} runner that just return the input elements as the
  * execution results.
  */
-public class PassThroughPythonScalarFunctionRunner extends BeamTableStatelessPythonFunctionRunner {
+public class PassThroughPythonScalarFunctionRunner extends BeamTablePythonFunctionRunner {
 
     private final List<byte[]> buffer;
 
@@ -46,7 +46,6 @@ public class PassThroughPythonScalarFunctionRunner extends BeamTableStatelessPyt
             RowType outputType,
             String functionUrn,
             FlinkFnApi.UserDefinedFunctions userDefinedFunctions,
-            String coderUrn,
             Map<String, String> jobOptions,
             FlinkMetricContainer flinkMetricContainer) {
         super(
@@ -56,11 +55,15 @@ public class PassThroughPythonScalarFunctionRunner extends BeamTableStatelessPyt
                 outputType,
                 functionUrn,
                 userDefinedFunctions,
-                coderUrn,
                 jobOptions,
                 flinkMetricContainer,
                 null,
+                null,
+                null,
+                null,
                 0.0,
+                FlinkFnApi.CoderParam.DataType.FLATTEN_ROW,
+                FlinkFnApi.CoderParam.DataType.FLATTEN_ROW,
                 FlinkFnApi.CoderParam.OutputMode.SINGLE);
         this.buffer = new LinkedList<>();
     }

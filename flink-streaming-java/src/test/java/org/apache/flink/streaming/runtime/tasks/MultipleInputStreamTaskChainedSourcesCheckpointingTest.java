@@ -18,15 +18,22 @@
 
 package org.apache.flink.streaming.runtime.tasks;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.eventtime.TimestampAssigner;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.mocks.MockSource;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
+import org.apache.flink.runtime.io.network.partition.PartitionTestUtils;
+import org.apache.flink.runtime.io.network.partition.ResultPartition;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.SourceOperatorFactory;
@@ -37,15 +44,19 @@ import org.junit.Test;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
 import static org.apache.flink.streaming.runtime.tasks.MultipleInputStreamTaskTest.addSourceRecords;
 import static org.apache.flink.streaming.runtime.tasks.MultipleInputStreamTaskTest.buildTestHarness;
+import static org.apache.flink.streaming.runtime.tasks.StreamTaskTest.triggerCheckpoint;
+import static org.apache.flink.util.Preconditions.checkState;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -230,6 +241,95 @@ public class MultipleInputStreamTaskChainedSourcesCheckpointingTest {
         }
     }
 
+    @Test
+    public void testRpcTriggerCheckpointWithSourceChain() throws Exception {
+        ResultPartition[] partitionWriters = new ResultPartition[2];
+        try {
+            for (int i = 0; i < partitionWriters.length; ++i) {
+                partitionWriters[i] =
+                        PartitionTestUtils.createPartition(ResultPartitionType.PIPELINED_BOUNDED);
+                partitionWriters[i].setup();
+            }
+
+            try (StreamTaskMailboxTestHarness<String> testHarness =
+                    new StreamTaskMailboxTestHarnessBuilder<>(
+                                    MultipleInputStreamTask::new, BasicTypeInfo.STRING_TYPE_INFO)
+                            .modifyStreamConfig(config -> config.setCheckpointingEnabled(true))
+                            .modifyExecutionConfig(ExecutionConfig::enableObjectReuse)
+                            .addInput(BasicTypeInfo.INT_TYPE_INFO)
+                            .addInput(BasicTypeInfo.STRING_TYPE_INFO)
+                            .addSourceInput(
+                                    new SourceOperatorFactory<>(
+                                            new MultipleInputStreamTaskTest
+                                                    .LifeCycleTrackingMockSource(
+                                                    Boundedness.BOUNDED, 1),
+                                            WatermarkStrategy.noWatermarks()))
+                            .addSourceInput(
+                                    new SourceOperatorFactory<>(
+                                            new MultipleInputStreamTaskTest
+                                                    .LifeCycleTrackingMockSource(
+                                                    Boundedness.BOUNDED, 1),
+                                            WatermarkStrategy.noWatermarks()))
+                            .addAdditionalOutput(partitionWriters)
+                            .setupOperatorChain(new MapToStringMultipleInputOperatorFactory(4))
+                            .finishForSingletonOperatorChain(StringSerializer.INSTANCE)
+                            .build()) {
+
+                testHarness
+                        .getStreamTask()
+                        .getCheckpointCoordinator()
+                        .setEnableCheckpointAfterTasksFinished(true);
+                testHarness
+                        .getStreamTask()
+                        .getCheckpointBarrierHandler()
+                        .get()
+                        .setEnableCheckpointAfterTasksFinished(true);
+
+                Future<Boolean> checkpointFuture = triggerCheckpoint(testHarness, 2);
+                testHarness.processAll();
+
+                // The checkpoint 2 would be aligned after received all the EndOfPartitionEvent.
+                testHarness.processEvent(EndOfPartitionEvent.INSTANCE, 0, 0);
+                testHarness.processEvent(EndOfPartitionEvent.INSTANCE, 1, 0);
+                testHarness.getTaskStateManager().getWaitForReportLatch().await();
+                assertEquals(2, testHarness.getTaskStateManager().getReportedCheckpointId());
+
+                // Tests triggering checkpoint after all the inputs have received EndOfPartition.
+                checkpointFuture = triggerCheckpoint(testHarness, 4);
+
+                // Notifies the result partition that all records are processed after the
+                // last checkpoint is triggered.
+                checkState(
+                        checkpointFuture instanceof CompletableFuture,
+                        "The trigger future should " + " be also CompletableFuture.");
+                ((CompletableFuture<?>) checkpointFuture)
+                        .thenAccept(
+                                (ignored) -> {
+                                    for (ResultPartition resultPartition : partitionWriters) {
+                                        resultPartition.onSubpartitionAllRecordsProcessed(0);
+                                    }
+                                });
+
+                // The checkpoint 4 would be triggered successfully.
+                testHarness.finishProcessing();
+                assertTrue(checkpointFuture.isDone());
+                testHarness.getTaskStateManager().getWaitForReportLatch().await();
+                assertEquals(4, testHarness.getTaskStateManager().getReportedCheckpointId());
+
+                // Each result partition should have emitted 2 barriers and 1 EndOfUserRecordsEvent.
+                for (ResultPartition resultPartition : partitionWriters) {
+                    assertEquals(3, resultPartition.getNumberOfQueuedBuffers());
+                }
+            }
+        } finally {
+            for (ResultPartitionWriter writer : partitionWriters) {
+                if (writer != null) {
+                    writer.close();
+                }
+            }
+        }
+    }
+
     private void addRecordsAndBarriers(
             StreamTaskMailboxTestHarness<String> testHarness, CheckpointBarrier checkpointBarrier)
             throws Exception {
@@ -245,7 +345,7 @@ public class MultipleInputStreamTaskChainedSourcesCheckpointingTest {
                         CheckpointStorageLocationReference.getDefault(),
                         config.isExactlyOnceCheckpointMode(),
                         config.isUnalignedCheckpointsEnabled(),
-                        config.getAlignmentTimeout().toMillis());
+                        config.getAlignedCheckpointTimeout().toMillis());
 
         return new CheckpointBarrier(
                 metaData.getCheckpointId(), metaData.getTimestamp(), checkpointOptions);
