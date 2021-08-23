@@ -79,7 +79,7 @@ public final class MemorySegment {
     /** The unsafe handle for transparent memory copied (heap / off-heap). */
     @SuppressWarnings("restriction")
     private static final sun.misc.Unsafe UNSAFE = MemoryUtils.UNSAFE;
-
+    // Unsafe是sun.misc包内的一个类，提供了native方式直接操作内存（分配内存，释放内存，复制内存，CAS操作，读写各种Java原生数据类型的数据）的方法。这些方法的执行效率非常高。但由于这些方法使用了类似C语言指针的方式操作内存，如果使用不当，很可能会造成不可预知的问题。
     /** The beginning of the byte array contents, relative to the byte array object. */
     @SuppressWarnings("restriction")
     private static final long BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
@@ -101,25 +101,25 @@ public final class MemorySegment {
      * segment will point to undefined addresses outside the heap and may in out-of-order execution
      * cases cause segmentation faults.
      */
-    @Nullable private final byte[] heapMemory;
+    @Nullable private final byte[] heapMemory; // 堆内存引用
 
     /**
      * The direct byte buffer that wraps the off-heap memory. This memory segment holds a reference
      * to that buffer, so as long as this memory segment lives, the memory will not be released.
      */
-    @Nullable private ByteBuffer offHeapBuffer;
+    @Nullable private ByteBuffer offHeapBuffer;//ByteBuffer类型，代表堆外内存
 
     /**
      * The address to the data, relative to the heap memory byte array. If the heap memory byte
      * array is <tt>null</tt>, this becomes an absolute memory address outside the heap.
      */
-    private long address;
+    private long address; // 存放内存的起始地址。如果是堆内内存，值为BYTE_ARRAY_BASE_OFFSET，即UNSAFE.arrayBaseOffset(byte[].class)。如果是堆外内存，值为ByteBuffer的起始地址
 
     /**
      * The address one byte after the last addressable byte, i.e. <tt>address + size</tt> while the
      * segment is not disposed.
      */
-    private final long addressLimit;
+    private final long addressLimit;//堆外内存的结束地址（address + size）
 
     /** The size in bytes of the memory segment. */
     private final int size;
@@ -149,6 +149,7 @@ public final class MemorySegment {
      * @param buffer The byte array whose memory is represented by this memory segment.
      * @param owner The owner references by this memory segment.
      */
+    // 堆内存的初始化
     MemorySegment(@Nonnull byte[] buffer, @Nullable Object owner) {
         this.heapMemory = buffer;
         this.offHeapBuffer = null;
@@ -912,7 +913,7 @@ public final class MemorySegment {
      */
     public long getLong(int index) {
         final long pos = address + index;
-        if (index >= 0 && pos <= addressLimit - 8) {
+        if (index >= 0 && pos <= addressLimit - 8) { // 这是我们关注的地方，使用 Unsafe 来操作 on-heap & off-heap
             return UNSAFE.getLong(heapMemory, pos);
         } else if (address > addressLimit) {
             throw new IllegalStateException("segment has been freed");
@@ -956,6 +957,7 @@ public final class MemorySegment {
      * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
      *     segment size minus 8.
      */
+    // 从index位置开始读取8个字节（因为Long是8个字节）
     public long getLongBigEndian(int index) {
         if (LITTLE_ENDIAN) {
             return Long.reverseBytes(getLong(index));
@@ -1307,7 +1309,7 @@ public final class MemorySegment {
      *     the given number of bytes (starting from offset), or the target byte buffer does not have
      *     enough space for the bytes.
      * @throws ReadOnlyBufferException If the target buffer is read-only.
-     */
+     *///读取堆外内存
     public void get(int offset, ByteBuffer target, int numBytes) {
         // check the byte array offset and length
         if ((offset | numBytes | (offset + numBytes)) < 0) {
@@ -1366,7 +1368,7 @@ public final class MemorySegment {
      * @throws IndexOutOfBoundsException If the offset is invalid, or the source buffer does not
      *     contain the given number of bytes, or this segment does not have enough space for the
      *     bytes (counting from offset).
-     */
+     *///写入堆外内存
     public void put(int offset, ByteBuffer source, int numBytes) {
         // check the byte array offset and length
         if ((offset | numBytes | (offset + numBytes)) < 0) {

@@ -61,7 +61,7 @@ public final class LongSerializer extends TypeSerializerSingleton<Long> {
     public int getLength() {
         return Long.BYTES;
     }
-
+//将record序列化后保存到target的buffer中
     @Override
     public void serialize(Long record, DataOutputView target) throws IOException {
         target.writeLong(record);
@@ -69,7 +69,7 @@ public final class LongSerializer extends TypeSerializerSingleton<Long> {
 
     @Override
     public Long deserialize(DataInputView source) throws IOException {
-        return source.readLong();
+        return source.readLong(); // 按字节顺序读取Long8个字节
     }
 
     @Override

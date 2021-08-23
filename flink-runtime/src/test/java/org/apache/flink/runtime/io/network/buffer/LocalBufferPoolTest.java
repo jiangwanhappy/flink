@@ -72,12 +72,12 @@ public class LocalBufferPoolTest extends TestLogger {
 
     private static final ExecutorService executor = Executors.newCachedThreadPool();
 
-    @Rule public Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
-
+//    @Rule public Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
+//已看完
     @Before
     public void setupLocalBufferPool() {
         networkBufferPool = new NetworkBufferPool(numBuffers, memorySegmentSize);
-        localBufferPool = new LocalBufferPool(networkBufferPool, 1);
+        localBufferPool = new LocalBufferPool(networkBufferPool, 1);//从networkBufferPool中分配1个
 
         assertEquals(1, localBufferPool.getNumberOfAvailableMemorySegments());
     }
@@ -99,10 +99,10 @@ public class LocalBufferPoolTest extends TestLogger {
     public static void shutdownExecutor() {
         executor.shutdownNow();
     }
-
+    //已看完
     @Test
     public void testRequestMoreThanAvailable() {
-        localBufferPool.setNumBuffers(numBuffers);
+        localBufferPool.setNumBuffers(numBuffers);//会申请1个
 
         List<Buffer> requests = new ArrayList<Buffer>(numBuffers);
 
@@ -113,32 +113,32 @@ public class LocalBufferPoolTest extends TestLogger {
             assertNotNull(buffer);
 
             requests.add(buffer);
-        }
+        }//networkBufferPool的1024个已经全部被localBufferPool申请完了
 
         {
             // One more...
-            Buffer buffer = localBufferPool.requestBuffer();
+            Buffer buffer = localBufferPool.requestBuffer();//已经没了
             assertEquals(numBuffers, getNumRequestedFromMemorySegmentPool());
             assertNull(buffer);
         }
 
         for (Buffer buffer : requests) {
-            buffer.recycleBuffer();
+            buffer.recycleBuffer();//会返回给localBufferPool的availableMemorySegments
         }
     }
-
+//已看完
     @Test
     public void testRequestAfterDestroy() {
-        localBufferPool.lazyDestroy();
+        localBufferPool.lazyDestroy();//将localBufferPool的可用资源都返还给networkBufferPool并isDestroyed = true
 
         try {
-            localBufferPool.requestBuffer();
+            localBufferPool.requestBuffer();//上一步isDestroyed = true，所以requestBuffer返回异常
             fail("Call should have failed with an IllegalStateException");
         } catch (IllegalStateException e) {
             // we expect exactly that
         }
     }
-
+    //已看完
     @Test
     public void testSetNumAfterDestroyDoesNotProactivelyFetchSegments() {
         localBufferPool.setNumBuffers(2);
@@ -536,7 +536,7 @@ public class LocalBufferPoolTest extends TestLogger {
     // ------------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------------
-
+//得到networkBufferPool中availableMemorySegments已被请求的数量
     private int getNumRequestedFromMemorySegmentPool() {
         return networkBufferPool.getTotalNumberOfMemorySegments()
                 - networkBufferPool.getNumberOfAvailableMemorySegments();

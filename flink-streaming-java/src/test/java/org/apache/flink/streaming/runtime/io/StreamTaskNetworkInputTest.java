@@ -270,7 +270,9 @@ public class StreamTaskNetworkInputTest {
                 new SerializationDelegate<>(new StreamElementSerializer<>(LongSerializer.INSTANCE));
         serializationDelegate.setInstance(new StreamRecord<>(value));
         ByteBuffer serializedRecord =
-                RecordWriter.serializeRecord(serializer, serializationDelegate);
+                RecordWriter.serializeRecord(
+                        serializer,
+                        serializationDelegate); // 根据序列化器serializationDelegate序列化数据到serializer中
         bufferBuilder.appendAndCommit(serializedRecord);
 
         assertFalse(bufferBuilder.isFull());

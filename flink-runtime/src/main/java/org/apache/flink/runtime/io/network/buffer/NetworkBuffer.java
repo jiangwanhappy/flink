@@ -43,11 +43,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  *
  * <p><strong>NOTE:</strong> before using this buffer in the netty stack, a buffer allocator must be
  * set via {@link #setAllocator(ByteBufAllocator)}!
- */
+ *///NetworkBuffer是MemorySegment的包装类。该类提供了大量的写入和获取buffer中原生类型数据的方法。除此之外还提供了缓存的复制和回收等功能
 public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Buffer {
 
     /** The backing {@link MemorySegment} instance. */
-    private final MemorySegment memorySegment;
+    private final MemorySegment memorySegment; // 保存值
 
     /** The recycler for the backing {@link MemorySegment}. */
     private final BufferRecycler recycler;
@@ -120,13 +120,13 @@ public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Bu
             DataType dataType,
             boolean isCompressed,
             int size) {
-        super(memorySegment.size());
+        super(memorySegment.size());//设置maxCapacity
         this.memorySegment = checkNotNull(memorySegment);
         this.recycler = checkNotNull(recycler);
         this.dataType = dataType;
         this.isCompressed = isCompressed;
         this.currentSize = memorySegment.size();
-        setSize(size);
+        setSize(size);//设置已写入的index
     }
 
     @Override
@@ -153,14 +153,14 @@ public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Bu
 
     @Override
     public void recycleBuffer() {
-        release();
+        release();//调用recycler.recycle
     }
 
     @Override
     public boolean isRecycled() {
         return refCnt() == 0;
     }
-
+    //获取对于这个AbstractReferenceCountedByteBuf的引用。引用计数器加一;相对应的release()就是释放
     @Override
     public NetworkBuffer retainBuffer() {
         return (NetworkBuffer) super.retain();
@@ -303,7 +303,7 @@ public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Bu
     public void setReaderIndex(int readerIndex) throws IndexOutOfBoundsException {
         readerIndex(readerIndex);
     }
-
+    // 得到已写入的大小
     @Override
     public int getSize() {
         return writerIndex();
@@ -311,7 +311,7 @@ public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Bu
 
     @Override
     public void setSize(int writerIndex) {
-        writerIndex(writerIndex);
+        writerIndex(writerIndex);//设置writerIndex，理解为已写入的index
     }
 
     @Override

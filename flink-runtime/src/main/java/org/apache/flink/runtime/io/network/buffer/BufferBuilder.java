@@ -36,12 +36,12 @@ import static org.apache.flink.util.Preconditions.checkState;
 @NotThreadSafe
 public class BufferBuilder implements AutoCloseable {
     private final Buffer buffer;
-    private final MemorySegment memorySegment;
-
+    private final MemorySegment memorySegment;//保存序列化后的内容，以便之后BufferConsumer读取
+//用来标识buffer目前保存数据的情况
     private final SettablePositionMarker positionMarker = new SettablePositionMarker();
 
     private boolean bufferConsumerCreated = false;
-
+//recycler参数指内存回收器
     public BufferBuilder(MemorySegment memorySegment, BufferRecycler recycler) {
         this.memorySegment = checkNotNull(memorySegment);
         this.buffer = new NetworkBuffer(memorySegment, recycler);
@@ -76,9 +76,9 @@ public class BufferBuilder implements AutoCloseable {
     }
 
     /** Same as {@link #append(ByteBuffer)} but additionally {@link #commit()} the appending. */
-    public int appendAndCommit(ByteBuffer source) {
+    public int appendAndCommit(ByteBuffer source) { // 将source的数据赋值到此memorySegment
         int writtenBytes = append(source);
-        commit();
+        commit(); // position = cachedPosition
         return writtenBytes;
     }
 
@@ -91,12 +91,12 @@ public class BufferBuilder implements AutoCloseable {
     public int append(ByteBuffer source) {
         checkState(!isFinished());
 
-        int needed = source.remaining();
-        int available = getMaxCapacity() - positionMarker.getCached();
+        int needed = source.remaining(); // limit - position
+        int available = getMaxCapacity() - positionMarker.getCached();//看还有多少容量
         int toCopy = Math.min(needed, available);
-
+//将source要复制的内容  按顺序复制到memorySegment里heapMemory
         memorySegment.put(positionMarker.getCached(), source, toCopy);
-        positionMarker.move(toCopy);
+        positionMarker.move(toCopy); // 将cachedPosition赋新值cachedPosition+toCopy
         return toCopy;
     }
 
@@ -105,7 +105,7 @@ public class BufferBuilder implements AutoCloseable {
      * case of bulk writes it's better to commit them all together instead one by one.
      */
     public void commit() {
-        positionMarker.commit();
+        positionMarker.commit(); // position = cachedPosition
     }
 
     /**
@@ -122,11 +122,11 @@ public class BufferBuilder implements AutoCloseable {
         commit();
         return writtenBytes;
     }
-
+//查看cachedPosition是否小于0
     public boolean isFinished() {
         return positionMarker.isFinished();
     }
-
+    // 看现有缓存长度cachedPosition是否等于最大容量（最大容量为1000）
     public boolean isFull() {
         checkState(positionMarker.getCached() <= getMaxCapacity());
         return positionMarker.getCached() == getMaxCapacity();
@@ -183,12 +183,12 @@ public class BufferBuilder implements AutoCloseable {
      * <p>Remember to commit the {@link SettablePositionMarker} to make the changes visible.
      */
     static class SettablePositionMarker implements PositionMarker {
-        private volatile int position = 0;
+        private volatile int position = 0; // commit的时候会将cachedPosition赋值给position
 
         /**
          * Locally cached value of volatile {@code position} to avoid unnecessary volatile accesses.
          */
-        private int cachedPosition = 0;
+        private int cachedPosition = 0; // copy的时候会将cachedPosition往前推copy的长度
 
         @Override
         public int get() {
@@ -198,7 +198,7 @@ public class BufferBuilder implements AutoCloseable {
         public boolean isFinished() {
             return PositionMarker.isFinished(cachedPosition);
         }
-
+        // 得到现有长度cachedPosition
         public int getCached() {
             return PositionMarker.getAbsolute(cachedPosition);
         }

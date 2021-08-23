@@ -33,9 +33,9 @@ import java.io.IOException;
  */
 public class SerializationDelegate<T> implements IOReadableWritable {
 
-    private T instance;
+    private T instance; // 要序列化的数据
 
-    private final TypeSerializer<T> serializer;
+    private final TypeSerializer<T> serializer; // 序列化器
 
     public SerializationDelegate(TypeSerializer<T> serializer) {
         this.serializer = serializer;
@@ -48,7 +48,7 @@ public class SerializationDelegate<T> implements IOReadableWritable {
     public T getInstance() {
         return this.instance;
     }
-
+    // 将数据instance根据序列化器serializer序列化保存到out中
     @Override
     public void write(DataOutputView out) throws IOException {
         this.serializer.serialize(this.instance, out);

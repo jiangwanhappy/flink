@@ -56,32 +56,32 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * <p>The NetworkBufferPool creates {@link LocalBufferPool}s from which the individual tasks draw
  * the buffers for the network data transfer. When new local buffer pools are created, the
  * NetworkBufferPool dynamically redistributes the buffers between the pools.
- */
+ *///NetworkBufferPool是供网络层使用的，固定大小的缓存池。每个task并非直接从NetworkBufferPool获取内存，而是使用从NetworkBufferPool创建出的LocalBufferPool来分配内存。
 public class NetworkBufferPool
         implements BufferPoolFactory, MemorySegmentProvider, AvailabilityProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(NetworkBufferPool.class);
 
-    private final int totalNumberOfMemorySegments;
+    private final int totalNumberOfMemorySegments;//总MemorySegment数量
 
-    private final int memorySegmentSize;
+    private final int memorySegmentSize;//每个MemorySegment的大小
 
-    private final ArrayDeque<MemorySegment> availableMemorySegments;
+    private final ArrayDeque<MemorySegment> availableMemorySegments;//一个队列，用来存放可用的MemorySegment
 
     private volatile boolean isDestroyed;
 
     // ---- Managed buffer pools ----------------------------------------------
 
     private final Object factoryLock = new Object();
+//存放 从NetworkBufferPool申请资源的LocalBufferPool 的集合
+    private final Set<LocalBufferPool> allBufferPools = new HashSet<>();//用来存放基于此NetworkBufferPool创建的LocalBufferPool
 
-    private final Set<LocalBufferPool> allBufferPools = new HashSet<>();
+    private int numTotalRequiredBuffers;//已经分配给LocalBufferPool的buffer数量
 
-    private int numTotalRequiredBuffers;
-
-    private final Duration requestSegmentsTimeout;
-
+    private final Duration requestSegmentsTimeout;//请求内存的最大等待时间（超时时间）
+//当availableMemorySegments的size > 0 时，认为availabilityHelper应为available的状态
     private final AvailabilityHelper availabilityHelper = new AvailabilityHelper();
-
+//分配指定数量的MemorySegment
     @VisibleForTesting
     public NetworkBufferPool(int numberOfSegmentsToAllocate, int segmentSize) {
         this(numberOfSegmentsToAllocate, segmentSize, Duration.ofMillis(Integer.MAX_VALUE));
@@ -138,9 +138,9 @@ public class NetworkBufferPool
                             + err.getMessage());
         }
 
-        availabilityHelper.resetAvailable();
+        availabilityHelper.resetAvailable();//availableFuture = AVAILABLE,则返回一个有结果值null的CompletableFuture
 
-        long allocatedMb = (sizeInLong * availableMemorySegments.size()) >> 20;
+        long allocatedMb = (sizeInLong * availableMemorySegments.size()) >> 20;//右移20位，即除以2^20,1MB=2^20B
 
         LOG.info(
                 "Allocated {} MB for network buffer pool (number of memory segments: {}, bytes per segment: {}).",
@@ -152,7 +152,7 @@ public class NetworkBufferPool
     @Nullable
     public MemorySegment requestMemorySegment() {
         synchronized (availableMemorySegments) {
-            return internalRequestMemorySegment();
+            return internalRequestMemorySegment();//从availableMemorySegments获取一个MemorySegment
         }
     }
 
@@ -162,7 +162,7 @@ public class NetworkBufferPool
         // making the availableMemorySegments queue and its contained object reclaimable
         internalRecycleMemorySegments(Collections.singleton(checkNotNull(segment)));
     }
-
+//numberOfSegmentsToRequest->MemorySegment为批量申请，该变量决定一批次申请的MemorySegment的数量
     @Override
     public List<MemorySegment> requestMemorySegments(int numberOfSegmentsToRequest)
             throws IOException {
@@ -223,7 +223,7 @@ public class NetworkBufferPool
 
         return segments;
     }
-
+//从availableMemorySegments获取一个MemorySegment
     @Nullable
     private MemorySegment internalRequestMemorySegment() {
         assert Thread.holdsLock(availableMemorySegments);
@@ -255,15 +255,15 @@ public class NetworkBufferPool
     private void internalRecycleMemorySegments(Collection<MemorySegment> segments) {
         CompletableFuture<?> toNotify = null;
         synchronized (availableMemorySegments) {
-            if (availableMemorySegments.isEmpty() && !segments.isEmpty()) {
-                toNotify = availabilityHelper.getUnavailableToResetAvailable();
+            if (availableMemorySegments.isEmpty() && !segments.isEmpty()) {//即若availableMemorySegments将变为有值的情况，则应将availableFuture 置为 AVAILABLE;
+                toNotify = availabilityHelper.getUnavailableToResetAvailable();//返回availableFuture在未置为AVAILABLE的状态
             }
             availableMemorySegments.addAll(segments);
-            availableMemorySegments.notifyAll();
+            availableMemorySegments.notifyAll();//notifyAll() 方法用于唤醒在该对象上等待的所有线程
         }
 
         if (toNotify != null) {
-            toNotify.complete(null);
+            toNotify.complete(null);//返回一个结果值null，让toNotify接收到结果并做应做的事
         }
     }
 
@@ -463,7 +463,7 @@ public class NetworkBufferPool
             ExceptionUtils.rethrow(t);
         }
     }
-
+//算出NetworkBufferPool还有多少可用资源，重新分配给allBufferPools集合里的LocalBufferPool
     // Must be called from synchronized block
     private void redistributeBuffers() {
         assert Thread.holdsLock(factoryLock);
@@ -505,7 +505,7 @@ public class NetworkBufferPool
         // guaranteed to be within the 'int' domain
         // (we use a checked downCast to handle possible bugs more gracefully).
         final int memorySegmentsToDistribute =
-                MathUtils.checkedDownCast(Math.min(numAvailableMemorySegment, totalCapacity));
+                MathUtils.checkedDownCast(Math.min(numAvailableMemorySegment, totalCapacity));//强转成int类型
 
         long totalPartsUsed = 0; // of totalCapacity
         int numDistributedMemorySegment = 0;

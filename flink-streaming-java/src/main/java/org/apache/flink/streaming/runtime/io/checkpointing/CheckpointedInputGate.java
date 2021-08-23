@@ -144,10 +144,10 @@ public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEven
     public CompletableFuture<?> getAvailableFuture() {
         return inputGate.getAvailableFuture();
     }
-
+    // 获取inputGate里的下一个待处理的数据
     @Override
     public Optional<BufferOrEvent> pollNext() throws IOException, InterruptedException {
-        Optional<BufferOrEvent> next = inputGate.pollNext();
+        Optional<BufferOrEvent> next = inputGate.pollNext();//获取下一个待处理的BufferOrEvent
 
         if (!next.isPresent()) {
             return handleEmptyBuffer();

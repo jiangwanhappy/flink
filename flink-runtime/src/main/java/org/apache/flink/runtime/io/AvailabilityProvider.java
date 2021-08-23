@@ -30,7 +30,7 @@ public interface AvailabilityProvider {
     /**
      * Constant that allows to avoid volatile checks {@link CompletableFuture#isDone()}. Check
      * {@link #isAvailable()} and {@link #isApproximatelyAvailable()} for more explanation.
-     */
+     *///CompletableFuture.completedFuture是一个静态辅助方法，用来返回一个已经计算好的CompletableFuture,这里是返回完成结果null
     CompletableFuture<?> AVAILABLE = CompletableFuture.completedFuture(null);
 
     /** @return a future that is completed if the respective provider is available. */
@@ -91,7 +91,7 @@ public interface AvailabilityProvider {
      * available/unavailable states.
      */
     final class AvailabilityHelper implements AvailabilityProvider {
-
+//标识资源池（如NetworkBufferPool、LocalBufferPool）是否可用
         private CompletableFuture<?> availableFuture = new CompletableFuture<>();
 
         public CompletableFuture<?> and(CompletableFuture<?> other) {
@@ -125,7 +125,7 @@ public interface AvailabilityProvider {
         /**
          * Returns the previously not completed future and resets the constant completed {@link
          * #AVAILABLE} as the current state.
-         */
+         *///将availableFuture设置为AVAILABLE，并返回设置之前的状态
         public CompletableFuture<?> getUnavailableToResetAvailable() {
             CompletableFuture<?> toNotify = availableFuture;
             availableFuture = AVAILABLE;

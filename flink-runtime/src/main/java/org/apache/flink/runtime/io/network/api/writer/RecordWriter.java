@@ -124,13 +124,15 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     public static ByteBuffer serializeRecord(
             DataOutputSerializer serializer, IOReadableWritable record) throws IOException {
         // the initial capacity should be no less than 4 bytes
-        serializer.setPositionUnsafe(4);
+        serializer.setPositionUnsafe(4); // serializer的buffer预留4个字节
 
         // write data
-        record.write(serializer);
+        record.write(serializer); // 将record写入serializer的buffer中
 
         // write length
-        serializer.writeIntUnsafe(serializer.length() - 4, 0);
+        serializer.writeIntUnsafe(
+                serializer.length() - 4,
+                0); // 在serializer的buffer的第4（从pos0开始，因为int是4个字节）个字节（下标为3）的存入此次写入的数据长度
 
         return serializer.wrapAsByteBuffer();
     }

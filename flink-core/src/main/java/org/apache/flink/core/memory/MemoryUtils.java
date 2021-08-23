@@ -47,8 +47,8 @@ public class MemoryUtils {
     @SuppressWarnings("restriction")
     private static sun.misc.Unsafe getUnsafe() {
         try {
-            Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
-            unsafeField.setAccessible(true);
+            Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");//使用反射。Unsafe这个class内的单例对象theUnsafe可以通过反射getDeclaredField直接拿到
+            unsafeField.setAccessible(true);//设置这个field为可以访问(setAccessible(true))这样可以绕过sun的限制，把Unsafe对象拿到rt.jar之外使用
             return (sun.misc.Unsafe) unsafeField.get(null);
         } catch (SecurityException e) {
             throw new Error(

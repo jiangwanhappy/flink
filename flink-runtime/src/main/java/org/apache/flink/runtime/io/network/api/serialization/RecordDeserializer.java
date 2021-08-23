@@ -28,14 +28,14 @@ import java.io.IOException;
 public interface RecordDeserializer<T extends IOReadableWritable> {
 
     /** Status of the deserialization result. */
-    enum DeserializationResult {
+    enum DeserializationResult { // 反序列化的结果
         PARTIAL_RECORD(false, true),
         INTERMEDIATE_RECORD_FROM_BUFFER(true, false),
         LAST_RECORD_FROM_BUFFER(true, true);
 
-        private final boolean isFullRecord;
+        private final boolean isFullRecord; // 为true代表一条完整的数据
 
-        private final boolean isBufferConsumed;
+        private final boolean isBufferConsumed; // 为true代表此buffer的数据已经消费完成
 
         private DeserializationResult(boolean isFullRecord, boolean isBufferConsumed) {
             this.isFullRecord = isFullRecord;

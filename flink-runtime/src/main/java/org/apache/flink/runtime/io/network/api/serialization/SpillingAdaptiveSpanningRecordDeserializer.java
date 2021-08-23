@@ -65,7 +65,7 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
     public void setNextBuffer(Buffer buffer) throws IOException {
         currentBuffer = buffer;
 
-        int offset = buffer.getMemorySegmentOffset();
+        int offset = buffer.getMemorySegmentOffset(); // 从offset位置开始读取
         MemorySegment segment = buffer.getMemorySegment();
         int numBytes = buffer.getSize();
 
@@ -123,8 +123,9 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
         // to encapsulate inside nonSpanningWrapper, but then nonSpanningWrapper.readInto equivalent
         // would have to return a tuple of DeserializationResult and recordLen, which would affect
         // performance too much
-        int recordLen = nonSpanningWrapper.readInt();
-        if (nonSpanningWrapper.canReadRecord(recordLen)) {
+        int recordLen = nonSpanningWrapper.readInt(); // 读取该条数据的长度
+        if (nonSpanningWrapper.canReadRecord(
+                recordLen)) { // 看是否recordLen <= (this.limit - this.position)
             return nonSpanningWrapper.readInto(target);
         } else {
             spanningWrapper.transferFrom(nonSpanningWrapper, recordLen);

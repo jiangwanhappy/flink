@@ -140,11 +140,11 @@ public class SingleInputGate extends IndexedInputGate {
     /**
      * Input channels. There is a one input channel for each consumed intermediate result partition.
      * We store this in a map for runtime updates of single channels.
-     */
+     *///InputChannel是所有channels，IntermediateResultPartitionID是每个InputChannel的IntermediateResultPartitionID
     private final Map<IntermediateResultPartitionID, InputChannel> inputChannels;
 
     @GuardedBy("requestLock")
-    private final InputChannel[] channels;
+    private final InputChannel[] channels;//保存所有的输入通道InputChannel
 
     /** Channels, which notified this input gate about available data. */
     private final PrioritizedDeque<InputChannel> inputChannelsWithData = new PrioritizedDeque<>();

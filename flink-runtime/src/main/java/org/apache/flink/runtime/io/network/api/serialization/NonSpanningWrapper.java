@@ -45,15 +45,15 @@ final class NonSpanningWrapper implements DataInputView {
                     + "(Value or Writable), check their serialization methods. If you are using a "
                     + "Kryo-serialized type, check the corresponding Kryo serializer.";
 
-    private MemorySegment segment;
+    private MemorySegment segment; // 保存的数据
 
-    private int limit;
+    private int limit; // 最多读到的位置
 
-    private int position;
+    private int position; // 正读到的位置
 
     private byte[] utfByteBuffer; // reusable byte buffer for utf-8 decoding
     private char[] utfCharBuffer; // reusable char buffer for utf-8 decoding
-
+    // 看是否还有没读的
     private int remaining() {
         return this.limit - this.position;
     }
@@ -140,14 +140,16 @@ final class NonSpanningWrapper implements DataInputView {
 
     @Override
     public final int readInt() {
-        final int v = this.segment.getIntBigEndian(this.position);
+        final int v =
+                this.segment.getIntBigEndian(this.position); // 从position位置开始读取4个字节（因为int是4个字节）
         this.position += 4;
         return v;
     }
 
     @Override
     public final long readLong() {
-        final long v = this.segment.getLongBigEndian(this.position);
+        final long v =
+                this.segment.getLongBigEndian(this.position); // 从position位置开始读取8个字节（因为Long是8个字节）
         this.position += 8;
         return v;
     }

@@ -83,7 +83,7 @@ public final class MemorySegmentFactory {
      *
      * @param size The size of the memory segment to allocate.
      * @return A new memory segment, backed by unpooled heap memory.
-     */
+     *///分配指定字节数的内存，位于堆内
     public static MemorySegment allocateUnpooledSegment(int size) {
         return allocateUnpooledSegment(size, null);
     }
@@ -108,7 +108,7 @@ public final class MemorySegmentFactory {
      *
      * @param size The size of the off-heap memory segment to allocate.
      * @return A new memory segment, backed by unpooled off-heap memory.
-     */
+     *///分配指定字节数的内存，位于堆外。
     public static MemorySegment allocateUnpooledOffHeapMemory(int size) {
         return allocateUnpooledOffHeapMemory(size, null);
     }
@@ -125,7 +125,7 @@ public final class MemorySegmentFactory {
         ByteBuffer memory = allocateDirectMemory(size);
         return new MemorySegment(memory, owner);
     }
-
+//：使用sun.misc.Unsafe的allocateMemory方法分配堆外内存。注意，使用这种方式分配的内存不受-XX:MaxDirectMemorySize这个JVM参数的限制。
     @VisibleForTesting
     public static MemorySegment allocateOffHeapUnsafeMemory(int size) {
         return allocateOffHeapUnsafeMemory(size, null, NO_OP);
@@ -134,7 +134,7 @@ public final class MemorySegmentFactory {
     private static ByteBuffer allocateDirectMemory(int size) {
         //noinspection ErrorNotRethrown
         try {
-            return ByteBuffer.allocateDirect(size);
+            return ByteBuffer.allocateDirect(size);//分配的堆外内存
         } catch (OutOfMemoryError outOfMemoryError) {
             // TODO: this error handling can be removed in future,
             // once we find a common way to handle OOM errors in netty threads.
@@ -182,7 +182,7 @@ public final class MemorySegmentFactory {
      * @param memory The byte buffer with the off-heap memory to be represented by the memory
      *     segment.
      * @return A new memory segment representing the given off-heap memory.
-     */
+     *///包装ByteBuffer类型堆外内存为MemorySegment类型
     public static MemorySegment wrapOffHeapMemory(ByteBuffer memory) {
         return new MemorySegment(memory, null);
     }

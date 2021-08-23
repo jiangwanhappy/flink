@@ -59,7 +59,7 @@ public class BufferOrEvent {
         this.event = null;
         this.channelInfo = channelInfo;
         this.moreAvailable = moreAvailable;
-        this.size = buffer.getSize();
+        this.size = buffer.getSize(); // 得到buffer已存储大小
         this.morePriorityEvents = morePriorityEvents;
     }
 

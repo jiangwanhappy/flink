@@ -54,7 +54,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
     private static final int TAG_LATENCY_MARKER = 3;
     private static final int TAG_STREAM_STATUS = 4;
 
-    private final TypeSerializer<T> typeSerializer;
+    private final TypeSerializer<T> typeSerializer;//用于对StreamElement序列化的序列化器，比如LongSerializer
 
     public StreamElementSerializer(TypeSerializer<T> serializer) {
         if (serializer instanceof StreamElementSerializer) {
@@ -153,7 +153,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
     }
-
+    // 先写入标识字段（如1表示TAG_REC_WITHOUT_TIMESTAMP），再写入具体值 到target中
     @Override
     public void serialize(StreamElement value, DataOutputView target) throws IOException {
         if (value.isRecord()) {
@@ -185,7 +185,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
 
     @Override
     public StreamElement deserialize(DataInputView source) throws IOException {
-        int tag = source.readByte();
+        int tag = source.readByte(); // 先读取标识
         if (tag == TAG_REC_WITH_TIMESTAMP) {
             long timestamp = source.readLong();
             return new StreamRecord<T>(typeSerializer.deserialize(source), timestamp);

@@ -30,11 +30,11 @@ import java.util.Arrays;
 /** A simple and efficient serializer for the {@link java.io.DataOutput} interface. */
 public class DataOutputSerializer implements DataOutputView, MemorySegmentWritable {
 
-    private byte[] buffer;
+    private byte[] buffer;//字节数组缓存空间，用来存放当前正在进行序列化操作的数据
 
-    private int position;
+    private int position; // buffer数组的下标
 
-    private ByteBuffer wrapper;
+    private ByteBuffer wrapper;//buffer或wrapper缓冲区任何一方中数据的改动都会影响另一方。
 
     // ------------------------------------------------------------------------
 
@@ -44,12 +44,14 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
         }
 
         this.buffer = new byte[startSize];
-        this.wrapper = ByteBuffer.wrap(buffer);
+        this.wrapper =
+                ByteBuffer.wrap(
+                        buffer);//将 byte 数组包装到缓冲区中。新的缓冲区将由给定的 byte 数组支持；也就是说，缓冲区修改将导致数组修改，反之亦然。新缓冲区的容量和界限将为 array.length，其位置将为零，其标记是不确定的。其底层实现数组将为给定数组，并且其数组偏移量将为零。
     }
-
+//设置wrapper的position为0和limit为当前length（即position），为了之后好读取值
     public ByteBuffer wrapAsByteBuffer() {
-        this.wrapper.position(0);
-        this.wrapper.limit(this.position);
+        this.wrapper.position(0); // 设置position
+        this.wrapper.limit(this.position); // 设置limit
         return this.wrapper;
     }
 
@@ -107,7 +109,8 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
         if (this.position >= this.buffer.length) {
             resize(1);
         }
-        this.buffer[this.position++] = (byte) (b & 0xff);
+        this.buffer[this.position++] =
+                (byte) (b & 0xff); // 0xff是十六进制，対应二进制为1111 1111,是255，只要是0-225的数字& 0xff，都是自己
     }
 
     @Override
@@ -208,14 +211,17 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 
     public void writeIntUnsafe(int v, int pos) throws IOException {
         if (LITTLE_ENDIAN) {
-            v = Integer.reverseBytes(v);
+            v = Integer.reverseBytes(v); // 将第一个字节与第四个字节的位置互换，第二个字节与第三个字节位置互换
         }
-        UNSAFE.putInt(this.buffer, BASE_OFFSET + pos, v);
+        UNSAFE.putInt(
+                this.buffer,
+                BASE_OFFSET + pos,
+                v); // 在指定的内存位置中设置值（putInt\putBoolean\putDouble等基本类型）
     }
 
     @SuppressWarnings("restriction")
     @Override
-    public void writeLong(long v) throws IOException {
+    public void writeLong(long v) throws IOException { // java的long是64位，8个字节
         if (this.position >= this.buffer.length - 7) {
             resize(8);
         }

@@ -92,28 +92,28 @@ public abstract class AbstractStreamTaskNetworkInput<
             if (currentRecordDeserializer != null) {
                 RecordDeserializer.DeserializationResult result;
                 try {
-                    result = currentRecordDeserializer.getNextRecord(deserializationDelegate);
+                    result = currentRecordDeserializer.getNextRecord(deserializationDelegate); // 将反序列化的数据保存到deserializationDelegate的Instance中
                 } catch (IOException e) {
                     throw new IOException(
                             String.format("Can't get next record for channel %s", lastChannel), e);
                 }
-                if (result.isBufferConsumed()) {
+                if (result.isBufferConsumed()) { // 是否此buffer的数据都已经消费完成
                     currentRecordDeserializer = null;
                 }
 
-                if (result.isFullRecord()) {
+                if (result.isFullRecord()) { // 如果是一条完整的数据
                     processElement(deserializationDelegate.getInstance(), output);
                     return InputStatus.MORE_AVAILABLE;
                 }
             }
 
             Optional<BufferOrEvent> bufferOrEvent = checkpointedInputGate.pollNext();
-            if (bufferOrEvent.isPresent()) {
+            if (bufferOrEvent.isPresent()) { // 第一次currentRecordDeserializer为null，进入这个if判断时，currentRecordDeserializer有赋值
                 // return to the mailbox after receiving a checkpoint barrier to avoid processing of
                 // data after the barrier before checkpoint is performed for unaligned checkpoint
                 // mode
                 if (bufferOrEvent.get().isBuffer()) {
-                    processBuffer(bufferOrEvent.get());
+                    processBuffer(bufferOrEvent.get()); // 把数据赋值到nonSpanningWrapper
                 } else {
                     return processEvent(bufferOrEvent.get());
                 }

@@ -52,7 +52,7 @@ public class SingleInputGateBuilder {
 
     private int gateIndex = 0;
 
-    private int numberOfChannels = 1;
+    private int numberOfChannels = 1;//SingleInputGate所拥有的的
 
     private PartitionProducerStateProvider partitionProducerStateProvider = NO_OP_PRODUCER_CHECKER;
 

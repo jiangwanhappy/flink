@@ -84,8 +84,8 @@ public class BufferConsumer implements Closeable {
      *     memory both of them must be recycled/closed.
      */
     public Buffer build() {
-        writerPosition.update();
-        int cachedWriterPosition = writerPosition.getCached();
+        writerPosition.update(); // 更新cachedPosition的值，更新成最新的position值（即buffer已写入的值）
+        int cachedWriterPosition = writerPosition.getCached(); // 得到cachedPosition的值
         Buffer slice =
                 buffer.readOnlySlice(
                         currentReaderPosition, cachedWriterPosition - currentReaderPosition);
@@ -215,9 +215,9 @@ public class BufferConsumer implements Closeable {
         private int getLatest() {
             return PositionMarker.getAbsolute(positionMarker.get());
         }
-
+        // 更新cachedPosition的值
         private void update() {
-            this.cachedPosition = positionMarker.get();
+            this.cachedPosition = positionMarker.get(); // 得到新的position的值
         }
     }
 }

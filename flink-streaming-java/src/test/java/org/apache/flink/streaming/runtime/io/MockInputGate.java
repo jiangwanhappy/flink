@@ -112,7 +112,7 @@ public class MockInputGate extends IndexedInputGate {
     public boolean isFinished() {
         return finishAfterLastBuffer && bufferOrEvents.isEmpty();
     }
-
+    // 获取bufferOrEvents的一条数据
     @Override
     public Optional<BufferOrEvent> getNext() {
         BufferOrEvent next = bufferOrEvents.poll();
