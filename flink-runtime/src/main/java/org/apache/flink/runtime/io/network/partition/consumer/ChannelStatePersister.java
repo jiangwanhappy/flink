@@ -116,9 +116,9 @@ public final class ChannelStatePersister {
                     CloseableIterator.ofElement(buffer.retainBuffer(), Buffer::recycleBuffer));
         }
     }
-
+//反序列化出event看是否是CheckpointBarrier或EventAnnouncement并作出相应操作
     protected Optional<Long> checkForBarrier(Buffer buffer) throws IOException {
-        AbstractEvent event = parseEvent(buffer);
+        AbstractEvent event = parseEvent(buffer);//反序列化出buffer里保存的event
         if (event instanceof CheckpointBarrier) {
             long barrierId = ((CheckpointBarrier) event).getId();
             long expectedBarrierId =
@@ -160,15 +160,15 @@ public final class ChannelStatePersister {
     /**
      * Parses the buffer as an event and returns the {@link CheckpointBarrier} if the event is
      * indeed a barrier or returns null in all other cases.
-     */
+     *///反序列化出buffer里保存的event
     @Nullable
     protected AbstractEvent parseEvent(Buffer buffer) throws IOException {
         if (buffer.isBuffer()) {
             return null;
         } else {
-            AbstractEvent event = EventSerializer.fromBuffer(buffer, getClass().getClassLoader());
+            AbstractEvent event = EventSerializer.fromBuffer(buffer, getClass().getClassLoader());//反序列化出buffer里保存的event
             // reset the buffer because it would be deserialized again in SingleInputGate while
-            // getting next buffer.
+            // getting next buffer.这里需要重新设置readerindex为0 以便后面getnextbuffer时会再次反序列化数据
             // we can further improve to avoid double deserialization in the future.
             buffer.setReaderIndex(0);
             return event;

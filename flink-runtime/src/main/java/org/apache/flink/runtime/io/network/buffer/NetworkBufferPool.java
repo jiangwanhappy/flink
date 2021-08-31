@@ -66,7 +66,7 @@ public class NetworkBufferPool
 
     private final int memorySegmentSize;//每个MemorySegment的大小
 
-    private final ArrayDeque<MemorySegment> availableMemorySegments;//一个队列，用来存放可用的MemorySegment
+    private final ArrayDeque<MemorySegment> availableMemorySegments;//一个队列，用来存放可用的MemorySegment(可用的=总的 - 已被申请的)
 
     private volatile boolean isDestroyed;
 
@@ -76,7 +76,7 @@ public class NetworkBufferPool
 //存放 从NetworkBufferPool申请资源的LocalBufferPool 的集合
     private final Set<LocalBufferPool> allBufferPools = new HashSet<>();//用来存放基于此NetworkBufferPool创建的LocalBufferPool
 
-    private int numTotalRequiredBuffers;//已经分配给LocalBufferPool的buffer数量
+    private int numTotalRequiredBuffers;//已经分配给其它bufferpool如LocalBufferPool的buffer数量
 
     private final Duration requestSegmentsTimeout;//请求内存的最大等待时间（超时时间）
 //当availableMemorySegments的size > 0 时，认为availabilityHelper应为available的状态
@@ -138,7 +138,7 @@ public class NetworkBufferPool
                             + err.getMessage());
         }
 
-        availabilityHelper.resetAvailable();//availableFuture = AVAILABLE,则返回一个有结果值null的CompletableFuture
+        availabilityHelper.resetAvailable();//availableFuture = AVAILABLE,即返回一个有结果值null已完成的CompletableFuture
 
         long allocatedMb = (sizeInLong * availableMemorySegments.size()) >> 20;//右移20位，即除以2^20,1MB=2^20B
 
@@ -162,7 +162,7 @@ public class NetworkBufferPool
         // making the availableMemorySegments queue and its contained object reclaimable
         internalRecycleMemorySegments(Collections.singleton(checkNotNull(segment)));
     }
-//numberOfSegmentsToRequest->MemorySegment为批量申请，该变量决定一批次申请的MemorySegment的数量
+//从NetworkBufferPool申请numberOfSegmentsToRequest个数量的MemorySegment，则需要重新分配给allBufferPools集合里的LocalBufferPool
     @Override
     public List<MemorySegment> requestMemorySegments(int numberOfSegmentsToRequest)
             throws IOException {
@@ -179,7 +179,7 @@ public class NetworkBufferPool
                 return Collections.emptyList();
             }
 
-            tryRedistributeBuffers(numberOfSegmentsToRequest);
+            tryRedistributeBuffers(numberOfSegmentsToRequest);//需要重新分配给allBufferPools集合里的LocalBufferPool
         }
 
         final List<MemorySegment> segments = new ArrayList<>(numberOfSegmentsToRequest);
@@ -337,7 +337,7 @@ public class NetworkBufferPool
     // ------------------------------------------------------------------------
     // BufferPoolFactory
     // ------------------------------------------------------------------------
-
+    //创建LocalBufferPool实例并返回
     @Override
     public BufferPool createBufferPool(int numRequiredBuffers, int maxUsedBuffers)
             throws IOException {
@@ -354,7 +354,7 @@ public class NetworkBufferPool
         return internalCreateBufferPool(
                 numRequiredBuffers, maxUsedBuffers, numSubpartitions, maxBuffersPerChannel);
     }
-
+    //创建LocalBufferPool实例并返回
     private BufferPool internalCreateBufferPool(
             int numRequiredBuffers,
             int maxUsedBuffers,
@@ -391,7 +391,7 @@ public class NetworkBufferPool
                             numRequiredBuffers,
                             maxUsedBuffers,
                             numSubpartitions,
-                            maxBuffersPerChannel);
+                            maxBuffersPerChannel);//创建LocalBufferPool实例
 
             allBufferPools.add(localBufferPool);
 
@@ -455,7 +455,7 @@ public class NetworkBufferPool
         this.numTotalRequiredBuffers += numberOfSegmentsToRequest;
 
         try {
-            redistributeBuffers();
+            redistributeBuffers();//重新分配给allBufferPools集合里的LocalBufferPool
         } catch (Throwable t) {
             this.numTotalRequiredBuffers -= numberOfSegmentsToRequest;
 
@@ -464,7 +464,7 @@ public class NetworkBufferPool
         }
     }
 //算出NetworkBufferPool还有多少可用资源，重新分配给allBufferPools集合里的LocalBufferPool
-    // Must be called from synchronized block
+    // Must be called from synchronized block，如本来allBufferPools里可以分配33个，但是requestMemorySegments方法从NetworkBufferPool申请了2个，则allBufferPools里就只能分配31个
     private void redistributeBuffers() {
         assert Thread.holdsLock(factoryLock);
 

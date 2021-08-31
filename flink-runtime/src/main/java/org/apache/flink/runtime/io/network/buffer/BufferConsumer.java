@@ -40,11 +40,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @NotThreadSafe
 public class BufferConsumer implements Closeable {
-    private final Buffer buffer;
+    private final Buffer buffer;//就是bufferbuilder里的buffer
 
-    private final CachedPositionMarker writerPosition;
+    private final CachedPositionMarker writerPosition;//里面的positionMarker就是bufferbuilder里的positionMarker
 
-    private int currentReaderPosition;
+    private int currentReaderPosition;//现在buffer里已有的数据长度
 
     /** Constructs {@link BufferConsumer} instance with static content of a certain size. */
     public BufferConsumer(Buffer buffer, int size) {
@@ -197,7 +197,7 @@ public class BufferConsumer implements Closeable {
         /**
          * Locally cached value of {@link PositionMarker} to avoid unnecessary volatile accesses.
          */
-        private int cachedPosition;
+        private int cachedPosition;//会被
 
         CachedPositionMarker(PositionMarker positionMarker) {
             this.positionMarker = checkNotNull(positionMarker);

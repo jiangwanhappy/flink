@@ -112,7 +112,7 @@ public interface AvailabilityProvider {
 
         /** Judges to reset the current available state as unavailable. */
         public void resetUnavailable() {
-            if (isAvailable()) {
+            if (isAvailable()) {//如果是完成状态，需要设置为未完成状态
                 availableFuture = new CompletableFuture<>();
             }
         }

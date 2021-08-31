@@ -67,9 +67,9 @@ public abstract class InputChannel {
     /** The maximum backoff (in ms). */
     protected final int maxBackoff;
 
-    protected final Counter numBytesIn;
+    protected final Counter numBytesIn;//记录消费的字节数，如1个event字节数是4
 
-    protected final Counter numBuffersIn;
+    protected final Counter numBuffersIn;//记录消费的记录数，如1个event
 
     /** The current backoff (in ms). */
     private int currentBackoff;
@@ -146,7 +146,7 @@ public abstract class InputChannel {
      * <p><b>Note:</b> When the input channel observes an exception, this method is called
      * regardless of whether the channel was empty before. That ensures that the parent InputGate
      * will always be notified about the exception.
-     */
+     *///因为此channel有数据了，需要把有数据的channel保存到inputChannelsWithData，并设置此inputgate为可用状态
     protected void notifyChannelNonEmpty() {
         inputGate.notifyChannelNonEmpty(this);
     }

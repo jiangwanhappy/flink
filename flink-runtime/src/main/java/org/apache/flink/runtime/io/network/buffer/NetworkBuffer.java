@@ -126,7 +126,7 @@ public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Bu
         this.dataType = dataType;
         this.isCompressed = isCompressed;
         this.currentSize = memorySegment.size();
-        setSize(size);//设置已写入的index
+        setSize(size);//设置已写入的index（表明已有多少数据被保存）
     }
 
     @Override
@@ -311,7 +311,7 @@ public class NetworkBuffer extends AbstractReferenceCountedByteBuf implements Bu
 
     @Override
     public void setSize(int writerIndex) {
-        writerIndex(writerIndex);//设置writerIndex，理解为已写入的index
+        writerIndex(writerIndex);//设置writerIndex，理解为已写入的index（即已有这么多数据保存）
     }
 
     @Override

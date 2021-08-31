@@ -52,8 +52,8 @@ public interface UpstreamRecoveryTracker {
 }
 
 final class UpstreamRecoveryTrackerImpl implements UpstreamRecoveryTracker {
-    private final HashSet<InputChannelInfo> restoredChannels;
-    private int numUnrestoredChannels;
+    private final HashSet<InputChannelInfo> restoredChannels;//保存channelInfo，表明已recovery的channel，相应的numUnrestoredChannels--
+    private int numUnrestoredChannels;//未recoveryed的channel数量
     private final InputGate inputGate;
 
     UpstreamRecoveryTrackerImpl(InputGate inputGate) {
@@ -61,7 +61,7 @@ final class UpstreamRecoveryTrackerImpl implements UpstreamRecoveryTracker {
         this.numUnrestoredChannels = inputGate.getNumberOfInputChannels();
         this.inputGate = inputGate;
     }
-
+//EndOfChannelStateEvent会执行此方法，表明该channel已recovery,添加channel信息到restoredChannels
     @Override
     public void handleEndOfRecovery(InputChannelInfo channelInfo) throws IOException {
         if (numUnrestoredChannels > 0) {
@@ -69,7 +69,7 @@ final class UpstreamRecoveryTrackerImpl implements UpstreamRecoveryTracker {
                     !restoredChannels.contains(channelInfo), "already restored: %s", channelInfo);
             restoredChannels.add(channelInfo);
             numUnrestoredChannels--;
-            if (numUnrestoredChannels == 0) {
+            if (numUnrestoredChannels == 0) {//当所有的channel都recoveryed完成时，对所有channel执行resumeConsumption操作
                 for (InputChannelInfo inputChannelInfo : inputGate.getChannelInfos()) {
                     inputGate.resumeConsumption(inputChannelInfo);
                 }

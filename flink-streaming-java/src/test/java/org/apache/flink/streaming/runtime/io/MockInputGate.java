@@ -45,7 +45,7 @@ public class MockInputGate extends IndexedInputGate {
 
     private final int numberOfChannels;
 
-    private final Queue<BufferOrEvent> bufferOrEvents;
+    private final Queue<BufferOrEvent> bufferOrEvents;//放置上游传过来的数据，之后经过处理发送给下游
 
     private final boolean[] closed;
 

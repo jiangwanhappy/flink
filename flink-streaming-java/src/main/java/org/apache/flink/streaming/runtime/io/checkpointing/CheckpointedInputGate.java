@@ -54,14 +54,14 @@ import static org.apache.flink.util.concurrent.FutureUtils.assertNoException;
 @Internal
 public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEvent>, Closeable {
     private static final Logger LOG = LoggerFactory.getLogger(CheckpointedInputGate.class);
-
+//关于收到CheckpointBarrier的一些触发操作
     private final CheckpointBarrierHandler barrierHandler;
-
+    //记录inputgate里已recovery的channel的情况，初步理解为当收到所有barrier时，将恢复所有channel继续接收上游数据
     private final UpstreamRecoveryTracker upstreamRecoveryTracker;
 
     /** The gate that the buffer draws its input from. */
     private final InputGate inputGate;
-
+    //waitForPriorityEvents方法会用到，会用来处理PriorityEvents
     private final MailboxExecutor mailboxExecutor;
 
     /** Indicate end of the input. */
@@ -126,7 +126,7 @@ public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEven
         final CompletableFuture<?> priorityEventAvailableFuture =
                 inputGate.getPriorityEventAvailableFuture();
         assertNoException(
-                priorityEventAvailableFuture.thenRun(
+                priorityEventAvailableFuture.thenRun(//priorityEventAvailableFuture处理完成就会执行thenRun方法
                         () -> {
                             try {
                                 mailboxExecutor.execute(

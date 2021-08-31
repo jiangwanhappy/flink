@@ -41,11 +41,11 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 
     static final int LENGTH_BYTES = Integer.BYTES;
 
-    private final NonSpanningWrapper nonSpanningWrapper;
+    private final NonSpanningWrapper nonSpanningWrapper;//主要存放数据的地方，先从这找
 
     private final SpanningWrapper spanningWrapper;
 
-    @Nullable private Buffer currentBuffer;
+    @Nullable private Buffer currentBuffer;//需要被反序列化的buffer
 
     public SpillingAdaptiveSpanningRecordDeserializer(String[] tmpDirectories) {
         this(tmpDirectories, DEFAULT_THRESHOLD_FOR_SPILLING, DEFAULT_FILE_BUFFER_SIZE);
@@ -60,7 +60,7 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
                         Math.max(thresholdForSpilling, MIN_THRESHOLD_FOR_SPILLING),
                         Math.max(fileBufferSize, MIN_FILE_BUFFER_SIZE));
     }
-
+//根据buffer中的数据的长度初始化nonSpanningWrapper（或spanningWrapper）的position和limit
     @Override
     public void setNextBuffer(Buffer buffer) throws IOException {
         currentBuffer = buffer;
@@ -83,13 +83,13 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
                 ? nonSpanningWrapper.getUnconsumedSegment()
                 : spanningWrapper.getUnconsumedSegment();
     }
-
+    //反序列化this(nonSpanningWrapper)里的一条记录（这个记录是什么类型，由serializer决定）并保存到target的instance里
     @Override
     public DeserializationResult getNextRecord(T target) throws IOException {
         // always check the non-spanning wrapper first.
         // this should be the majority of the cases for small records
         // for large records, this portion of the work is very small in comparison anyways
-
+//反序列化this(nonSpanningWrapper)里的一条记录（这个记录是什么类型，由target的serializer决定）并保存到target的instance里
         final DeserializationResult result = readNextRecord(target);
         if (result.isBufferConsumed()) {
             currentBuffer.recycleBuffer();
@@ -97,9 +97,9 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
         }
         return result;
     }
-
+    //反序列化this(nonSpanningWrapper)里的一条记录（这个记录是什么类型，由target的serializer决定）并保存到target的instance里
     private DeserializationResult readNextRecord(T target) throws IOException {
-        if (nonSpanningWrapper.hasCompleteLength()) {
+        if (nonSpanningWrapper.hasCompleteLength()) {//未读的部分（limit - position） >= LENGTH_BYTES
             return readNonSpanningRecord(target);
 
         } else if (nonSpanningWrapper.hasRemaining()) {
@@ -126,7 +126,7 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
         int recordLen = nonSpanningWrapper.readInt(); // 读取该条数据的长度
         if (nonSpanningWrapper.canReadRecord(
                 recordLen)) { // 看是否recordLen <= (this.limit - this.position)
-            return nonSpanningWrapper.readInto(target);
+            return nonSpanningWrapper.readInto(target);//反序列化nonSpanningWrapper里的一条记录（这个记录是什么类型，由target的serializer决定）并保存到target的instance里
         } else {
             spanningWrapper.transferFrom(nonSpanningWrapper, recordLen);
             return PARTIAL_RECORD;

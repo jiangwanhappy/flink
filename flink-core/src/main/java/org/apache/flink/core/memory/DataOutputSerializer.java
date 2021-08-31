@@ -29,9 +29,9 @@ import java.util.Arrays;
 
 /** A simple and efficient serializer for the {@link java.io.DataOutput} interface. */
 public class DataOutputSerializer implements DataOutputView, MemorySegmentWritable {
-
+//保存序列化后的数据
     private byte[] buffer;//字节数组缓存空间，用来存放当前正在进行序列化操作的数据
-
+//保存已写入的数据的长度
     private int position; // buffer数组的下标
 
     private ByteBuffer wrapper;//buffer或wrapper缓冲区任何一方中数据的改动都会影响另一方。

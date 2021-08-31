@@ -50,19 +50,19 @@ public class SingleInputGateBuilder {
 
     private int consumedSubpartitionIndex = 0;
 
-    private int gateIndex = 0;
+    private int gateIndex = 0;//gateId
 
-    private int numberOfChannels = 1;//SingleInputGate所拥有的的
+    private int numberOfChannels = 1;//SingleInputGate所拥有的的channel数量
 
     private PartitionProducerStateProvider partitionProducerStateProvider = NO_OP_PRODUCER_CHECKER;
 
     private BufferDecompressor bufferDecompressor = null;
-
+//提供buffer的，如networkBufferPool
     private MemorySegmentProvider segmentProvider =
             InputChannelTestUtils.StubMemorySegmentProvider.getInstance();
 
     private ChannelStateWriter channelStateWriter = ChannelStateWriter.NO_OP;
-
+//使用InputChannelBuilder构建InputChannel，SingleInputGate可以有多个InputChannel
     @Nullable
     private BiFunction<InputChannelBuilder, SingleInputGate, InputChannel> channelFactory = null;
 

@@ -119,7 +119,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
             flushAll();
         }
     }
-
+//将record序列化后保存到serializer
     @VisibleForTesting
     public static ByteBuffer serializeRecord(
             DataOutputSerializer serializer, IOReadableWritable record) throws IOException {
@@ -127,7 +127,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
         serializer.setPositionUnsafe(4); // serializer的buffer预留4个字节
 
         // write data
-        record.write(serializer); // 将record写入serializer的buffer中
+        record.write(serializer); // 将record（如是SerializationDelegate）里的数据（如SerializationDelegate里的instance）写入serializer的buffer中
 
         // write length
         serializer.writeIntUnsafe(

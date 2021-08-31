@@ -156,8 +156,8 @@ public abstract class InputGate
 
     /** Simple pojo for INPUT, DATA and moreAvailable. */
     protected static class InputWithData<INPUT, DATA> {
-        protected final INPUT input;
-        protected final DATA data;
+        protected final INPUT input;//是InputChannel
+        protected final DATA data;//是从input获取的数据
         protected final boolean moreAvailable;
         protected final boolean morePriorityEvents;
 

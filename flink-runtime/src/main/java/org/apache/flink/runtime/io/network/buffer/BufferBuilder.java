@@ -35,9 +35,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @NotThreadSafe
 public class BufferBuilder implements AutoCloseable {
-    private final Buffer buffer;
+    private final Buffer buffer;//由memorySegment包装而成
     private final MemorySegment memorySegment;//保存序列化后的内容，以便之后BufferConsumer读取
-//用来标识buffer目前保存数据的情况
+//用来标识buffer対应的bufferconsumer目前消费数据的情况
     private final SettablePositionMarker positionMarker = new SettablePositionMarker();
 
     private boolean bufferConsumerCreated = false;
@@ -189,7 +189,7 @@ public class BufferBuilder implements AutoCloseable {
          * Locally cached value of volatile {@code position} to avoid unnecessary volatile accesses.
          */
         private int cachedPosition = 0; // copy的时候会将cachedPosition往前推copy的长度
-
+//往往有改动都是先更新cachedPosition的值，只有执行commit操作才会把cachedPosition赋值给position
         @Override
         public int get() {
             return position;

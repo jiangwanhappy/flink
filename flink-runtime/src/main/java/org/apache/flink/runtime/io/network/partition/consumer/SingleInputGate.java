@@ -146,13 +146,13 @@ public class SingleInputGate extends IndexedInputGate {
     @GuardedBy("requestLock")
     private final InputChannel[] channels;//保存所有的输入通道InputChannel
 
-    /** Channels, which notified this input gate about available data. */
+    /** Channels, which notified this input gate about available data. *///保存有数据的channel
     private final PrioritizedDeque<InputChannel> inputChannelsWithData = new PrioritizedDeque<>();
-
+//里面有数据，则表明此channel里有数据为available状态，否则设置为unavailable状态
     /**
      * Field guaranteeing uniqueness for inputChannelsWithData queue. Both of those fields should be
      * unified onto one.
-     */
+     *///和inputChannelsWithData是同时的操作，记录保存在inputChannelsWithData的inputChannelIdx
     @GuardedBy("inputChannelsWithData")
     private final BitSet enqueuedInputChannelsWithData;
 
@@ -168,7 +168,7 @@ public class SingleInputGate extends IndexedInputGate {
     /**
      * Buffer pool for incoming buffers. Incoming data from remote channels is copied to buffers
      * from this pool.
-     */
+     *///bufferPool就是从bufferPoolFactory中获取的
     private BufferPool bufferPool;
 
     private boolean hasReceivedAllEndOfPartitionEvents;
@@ -627,7 +627,7 @@ public class SingleInputGate extends IndexedInputGate {
     public Optional<BufferOrEvent> pollNext() throws IOException, InterruptedException {
         return getNextBufferOrEvent(false);
     }
-
+//获取可用channel里的一条数据
     private Optional<BufferOrEvent> getNextBufferOrEvent(boolean blocking)
             throws IOException, InterruptedException {
         if (hasReceivedAllEndOfPartitionEvents) {
@@ -657,12 +657,12 @@ public class SingleInputGate extends IndexedInputGate {
             boolean blocking) throws IOException, InterruptedException {
         while (true) {
             synchronized (inputChannelsWithData) {
-                Optional<InputChannel> inputChannelOpt = getChannel(blocking);
+                Optional<InputChannel> inputChannelOpt = getChannel(blocking);//先得到可用的channel
                 if (!inputChannelOpt.isPresent()) {
                     return Optional.empty();
                 }
 
-                final InputChannel inputChannel = inputChannelOpt.get();
+                final InputChannel inputChannel = inputChannelOpt.get();//在获取channel里的数据
                 Optional<BufferAndAvailability> bufferAndAvailabilityOpt =
                         inputChannel.getNextBuffer();
 
@@ -672,7 +672,7 @@ public class SingleInputGate extends IndexedInputGate {
                 }
 
                 final BufferAndAvailability bufferAndAvailability = bufferAndAvailabilityOpt.get();
-                if (bufferAndAvailability.moreAvailable()) {
+                if (bufferAndAvailability.moreAvailable()) {//即是否还有buffer数据
                     // enqueue the inputChannel at the end to avoid starvation
                     queueChannelUnsafe(inputChannel, bufferAndAvailability.morePriorityEvents());
                 }
@@ -731,7 +731,7 @@ public class SingleInputGate extends IndexedInputGate {
                 moreAvailable,
                 morePriorityEvents);
     }
-
+//反序列化成event并包装成BufferOrEvent返回
     private BufferOrEvent transformEvent(
             Buffer buffer,
             boolean moreAvailable,
@@ -831,7 +831,7 @@ public class SingleInputGate extends IndexedInputGate {
     // ------------------------------------------------------------------------
     // Channel notifications
     // ------------------------------------------------------------------------
-
+//因为channel有数据了，需要把有数据的channel保存到inputChannelsWithData，并设置此inputgate为可用状态
     void notifyChannelNonEmpty(InputChannel channel) {
         queueChannel(checkNotNull(channel), null, false);
     }
@@ -871,7 +871,7 @@ public class SingleInputGate extends IndexedInputGate {
                     }
                 }));
     }
-
+//因为此channel有数据了，需要把有数据的channel保存到inputChannelsWithData，并设置此inputgate为可用状态
     private void queueChannel(
             InputChannel channel, @Nullable Integer prioritySequenceNumber, boolean forcePriority) {
         try (GateNotificationHelper notification =
@@ -890,7 +890,7 @@ public class SingleInputGate extends IndexedInputGate {
                     return;
                 }
 
-                if (!queueChannelUnsafe(channel, priority)) {
+                if (!queueChannelUnsafe(channel, priority)) {//保存有数据的channel到inputChannelsWithData
                     return;
                 }
 
@@ -919,7 +919,7 @@ public class SingleInputGate extends IndexedInputGate {
      *
      * @return true iff it has been enqueued/prioritized = some change to {@link
      *     #inputChannelsWithData} happened
-     */
+     *///保存有数据的channel到inputChannelsWithData
     private boolean queueChannelUnsafe(InputChannel channel, boolean priority) {
         assert Thread.holdsLock(inputChannelsWithData);
         if (channelsWithEndOfPartitionEvents.get(channel.getChannelIndex())) {
@@ -933,7 +933,7 @@ public class SingleInputGate extends IndexedInputGate {
             // already notified / prioritized (double notification), ignore
             return false;
         }
-
+        //channel添加到inputChannelsWithData
         inputChannelsWithData.add(channel, priority, alreadyEnqueued);
         if (!alreadyEnqueued) {
             enqueuedInputChannelsWithData.set(channel.getChannelIndex());

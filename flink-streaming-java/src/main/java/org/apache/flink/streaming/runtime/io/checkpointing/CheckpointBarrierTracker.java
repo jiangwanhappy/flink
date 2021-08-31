@@ -98,7 +98,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
         // 3. Received barrier from channel 1.
         // In this case we should finish the existing pending checkpoint.
         if (receivedBarrier.getId() > latestPendingCheckpointID && numOpenChannels == 1) {
-            markAlignmentStartAndEnd(receivedBarrier.getTimestamp());
+            markAlignmentStartAndEnd(receivedBarrier.getTimestamp());//checkpoint完成，记录future值并重置
             notifyCheckpoint(receivedBarrier);
             return;
         }

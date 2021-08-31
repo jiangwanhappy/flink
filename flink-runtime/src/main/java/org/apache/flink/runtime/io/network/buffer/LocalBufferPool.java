@@ -67,7 +67,7 @@ class LocalBufferPool implements BufferPool {
 
     private static final int UNKNOWN_CHANNEL = -1;
 
-    /** Global network buffer pool to get buffers from. */
+    /** Global network buffer pool to get buffers from. *///LocalBufferPool是从该 NetworkBufferPool 获取的buffer
     private final NetworkBufferPool networkBufferPool;
 
     /** The minimum number of required segments for this pool. */

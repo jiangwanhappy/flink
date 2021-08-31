@@ -92,7 +92,7 @@ public class StreamTaskNetworkInputTest {
     public void tearDown() throws Exception {
         ioManager.close();
     }
-
+//已看完
     @Test
     public void testIsAvailableWithBufferedDataInDeserializer() throws Exception {
         List<BufferOrEvent> buffers = Collections.singletonList(createDataBuffer());
@@ -109,7 +109,7 @@ public class StreamTaskNetworkInputTest {
      * InputGate on CheckpointBarrier can enqueue a mailbox action to execute and
      * StreamTaskNetworkInput must allow this action to execute before processing a following
      * record.
-     */
+     *///已看完，插入了一个CheckpointBarrier，必须处理完CheckpointBarrier才能处理后面的record
     @Test
     public void testNoDataProcessedAfterCheckpointBarrier() throws Exception {
         CheckpointBarrier barrier =
@@ -265,7 +265,7 @@ public class StreamTaskNetworkInputTest {
     }
 
     private void serializeRecord(long value, BufferBuilder bufferBuilder) throws IOException {
-        DataOutputSerializer serializer = new DataOutputSerializer(128);
+        DataOutputSerializer serializer = new DataOutputSerializer(128);//保存序列化后的数据
         SerializationDelegate<StreamElement> serializationDelegate =
                 new SerializationDelegate<>(new StreamElementSerializer<>(LongSerializer.INSTANCE));
         serializationDelegate.setInstance(new StreamRecord<>(value));
@@ -273,15 +273,15 @@ public class StreamTaskNetworkInputTest {
                 RecordWriter.serializeRecord(
                         serializer,
                         serializationDelegate); // 根据序列化器serializationDelegate序列化数据到serializer中
-        bufferBuilder.appendAndCommit(serializedRecord);
+        bufferBuilder.appendAndCommit(serializedRecord);//将serializedRecord数据添加到bufferBuilder
 
-        assertFalse(bufferBuilder.isFull());
+        assertFalse(bufferBuilder.isFull());//看bufferBuilder里的容量是否已满
     }
 
     private static <T> void assertHasNextElement(StreamTaskInput<T> input, DataOutput<T> output)
             throws Exception {
         assertTrue(input.getAvailableFuture().isDone());
-        InputStatus status = input.emitNext(output);
+        InputStatus status = input.emitNext(output);//取出input一条记录并发送到output
         assertThat(status, is(InputStatus.MORE_AVAILABLE));
     }
 

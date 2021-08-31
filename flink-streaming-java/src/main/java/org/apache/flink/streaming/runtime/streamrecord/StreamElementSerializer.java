@@ -182,7 +182,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             throw new RuntimeException();
         }
     }
-
+//反序列化source里的一条记录
     @Override
     public StreamElement deserialize(DataInputView source) throws IOException {
         int tag = source.readByte(); // 先读取标识

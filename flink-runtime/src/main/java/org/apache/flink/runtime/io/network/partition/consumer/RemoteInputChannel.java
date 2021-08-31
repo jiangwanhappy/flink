@@ -149,7 +149,7 @@ public class RemoteInputChannel extends InputChannel {
     /**
      * Setup includes assigning exclusive buffers to this input channel, and this method should be
      * called only once after this input channel is created.
-     */
+     *///从bufferManager里的global中申请资源，默认是initialCredit，为2
     @Override
     void setup() throws IOException {
         checkState(
@@ -480,7 +480,7 @@ public class RemoteInputChannel extends InputChannel {
     /**
      * Handles the input buffer. This method is taking over the ownership of the buffer and is fully
      * responsible for cleaning it up both on the happy path and in case of an error.
-     */
+     *///包装buffer成SequenceBuffer并添加到receivedBuffers并inputgate的inputChannelsWithData进行notify并设置此inputgate为可用状态
     public void onBuffer(Buffer buffer, int sequenceNumber, int backlog) throws IOException {
         boolean recycleBuffer = true;
 
@@ -489,7 +489,7 @@ public class RemoteInputChannel extends InputChannel {
                 onError(new BufferReorderingException(expectedSequenceNumber, sequenceNumber));
                 return;
             }
-
+            //如RECOVERY_COMPLETION是true
             if (buffer.getDataType().isBlockingUpstream()) {
                 onBlockingUpstream();
                 checkArgument(backlog == 0, "Illegal number of backlog: %s, should be 0.", backlog);
@@ -527,7 +527,7 @@ public class RemoteInputChannel extends InputChannel {
                     }
                 }
                 channelStatePersister
-                        .checkForBarrier(sequenceBuffer.buffer)
+                        .checkForBarrier(sequenceBuffer.buffer)//反序列化出event看是否是CheckpointBarrier或EventAnnouncement并作出相应操作
                         .filter(id -> id > lastBarrierId)
                         .ifPresent(
                                 id -> {
@@ -545,7 +545,7 @@ public class RemoteInputChannel extends InputChannel {
                 notifyPriorityEvent(sequenceNumber);
             }
             if (wasEmpty) {
-                notifyChannelNonEmpty();
+                notifyChannelNonEmpty();//因为此channel有数据了，需要把有数据的channel保存到inputChannelsWithData，并设置此inputgate为可用状态
             }
 
             if (backlog >= 0) {
@@ -797,7 +797,7 @@ public class RemoteInputChannel extends InputChannel {
                     expectedSequenceNumber, actualSequenceNumber);
         }
     }
-
+//可理解为带sequenceNumber记号的buffer
     private static final class SequenceBuffer {
         final Buffer buffer;
         final int sequenceNumber;

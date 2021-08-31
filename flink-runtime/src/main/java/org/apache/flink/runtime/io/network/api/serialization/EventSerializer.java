@@ -82,7 +82,7 @@ public class EventSerializer {
     // ------------------------------------------------------------------------
     //  Serialization Logic
     // ------------------------------------------------------------------------
-
+//序列化event
     public static ByteBuffer toSerializedEvent(AbstractEvent event) throws IOException {
         final Class<?> eventClass = event.getClass();
         if (eventClass == EndOfPartitionEvent.class) {
@@ -135,10 +135,10 @@ public class EventSerializer {
             }
         }
     }
-
+//反序列化出event
     public static AbstractEvent fromSerializedEvent(ByteBuffer buffer, ClassLoader classLoader)
             throws IOException {
-        if (buffer.remaining() < 4) {
+        if (buffer.remaining() < 4) {//一个完整的event定义成4个字节
             throw new IOException("Incomplete event");
         }
 
@@ -146,7 +146,7 @@ public class EventSerializer {
         buffer.order(ByteOrder.BIG_ENDIAN);
 
         try {
-            final int type = buffer.getInt();
+            final int type = buffer.getInt();//int是32位，4个字节
 
             if (type == END_OF_PARTITION_EVENT) {
                 return EndOfPartitionEvent.INSTANCE;
@@ -292,16 +292,16 @@ public class EventSerializer {
     // ------------------------------------------------------------------------
     // Buffer helpers
     // ------------------------------------------------------------------------
-
+//将event的信息包装成NetworkBuffer并返回
     public static Buffer toBuffer(AbstractEvent event, boolean hasPriority) throws IOException {
-        final ByteBuffer serializedEvent = EventSerializer.toSerializedEvent(event);
+        final ByteBuffer serializedEvent = EventSerializer.toSerializedEvent(event);//序列化event
 
         MemorySegment data = MemorySegmentFactory.wrap(serializedEvent.array());
 
         final Buffer buffer =
                 new NetworkBuffer(
                         data, FreeingBufferRecycler.INSTANCE, getDataType(event, hasPriority));
-        buffer.setSize(serializedEvent.remaining());
+        buffer.setSize(serializedEvent.remaining());//将已保存的数据长度写入writeindex
 
         return buffer;
     }
@@ -320,6 +320,6 @@ public class EventSerializer {
 
     public static AbstractEvent fromBuffer(Buffer buffer, ClassLoader classLoader)
             throws IOException {
-        return fromSerializedEvent(buffer.getNioBufferReadable(), classLoader);
+        return fromSerializedEvent(buffer.getNioBufferReadable(), classLoader);//反序列化出buffer保存的event
     }
 }

@@ -44,19 +44,19 @@ public abstract class CheckpointBarrierHandler implements Closeable {
     private static final long OUTSIDE_OF_ALIGNMENT = Long.MIN_VALUE;
 
     /** The listener to be notified on complete checkpoints. */
-    private final AbstractInvokable toNotifyOnCheckpoint;
+    private final AbstractInvokable toNotifyOnCheckpoint;//关于checkpoint的一些触发操作
 
     private final Clock clock;
 
-    /** The time (in nanoseconds) that the latest alignment took. */
+    /** The time (in nanoseconds) that the latest alignment took. *///最近一次对齐（收到所有channel的barrier）完成的时间
     private CompletableFuture<Long> latestAlignmentDurationNanos = new CompletableFuture<>();
 
     /**
      * The time (in nanoseconds) between creation of the checkpoint's first checkpoint barrier and
      * receiving it by this task.
-     */
+     *///最近一次checkpoint耗时的时间
     private long latestCheckpointStartDelayNanos;
-
+//新一次的对齐开始的时间，由clock计算
     /** The timestamp as in {@link System#nanoTime()} at which the last alignment started. */
     private long startOfAlignmentTimestamp = OUTSIDE_OF_ALIGNMENT;
 
@@ -65,7 +65,7 @@ public abstract class CheckpointBarrierHandler implements Closeable {
      * put this value into the {@link #latestBytesProcessedDuringAlignment}.
      */
     private long bytesProcessedDuringAlignment;
-
+//和latestAlignmentDurationNanos相对应，最近一次在对齐期间处理的字节数，完成的值是bytesProcessedDuringAlignment
     private CompletableFuture<Long> latestBytesProcessedDuringAlignment = new CompletableFuture<>();
 
     /**
@@ -122,7 +122,7 @@ public abstract class CheckpointBarrierHandler implements Closeable {
                         checkpointBarrier.getId(),
                         checkpointBarrier.getTimestamp(),
                         System.currentTimeMillis());
-
+//记录此次checkpoint完成的一些信息
         CheckpointMetricsBuilder checkpointMetrics =
                 new CheckpointMetricsBuilder()
                         .setAlignmentDurationNanos(latestAlignmentDurationNanos)
@@ -161,7 +161,7 @@ public abstract class CheckpointBarrierHandler implements Closeable {
     protected void markAlignmentEnd() {
         markAlignmentEnd(clock.relativeTimeNanos() - startOfAlignmentTimestamp);
     }
-
+//对齐结束，latestAlignmentDurationNanos、latestBytesProcessedDuringAlignment等future设置完成值
     protected void markAlignmentEnd(long alignmentDuration) {
         latestAlignmentDurationNanos.complete(alignmentDuration);
         latestBytesProcessedDuringAlignment.complete(bytesProcessedDuringAlignment);
@@ -169,7 +169,7 @@ public abstract class CheckpointBarrierHandler implements Closeable {
         startOfAlignmentTimestamp = OUTSIDE_OF_ALIGNMENT;
         bytesProcessedDuringAlignment = 0;
     }
-
+//latestAlignmentDurationNanos、latestBytesProcessedDuringAlignment设置完成值，并重置
     private void resetAlignment() {
         markAlignmentEnd(0);
         latestAlignmentDurationNanos = new CompletableFuture<>();

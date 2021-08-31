@@ -73,7 +73,7 @@ public class CheckpointedInputGateTest {
     public void setUp() {
         channelIndexToSequenceNumber.clear();
     }
-
+    //已看完
     @Test
     public void testUpstreamResumedUponEndOfRecovery() throws Exception {
         int numberOfChannels = 11;
@@ -84,7 +84,7 @@ public class CheckpointedInputGateTest {
                     setupInputGate(numberOfChannels, bufferPool, resumeCounter);
             assertFalse(gate.pollNext().isPresent());
             for (int channelIndex = 0; channelIndex < numberOfChannels - 1; channelIndex++) {
-                enqueueEndOfState(gate, channelIndex);
+                enqueueEndOfState(gate, channelIndex);//插入一条EndOfChannelStateEvent（datatype是RECOVERY_COMPLETION(isBuffer:false,isEvent:true,isBlockingUpstream:true,hasPriority:false,requireAnnouncement:false)） 到channel
                 Optional<BufferOrEvent> bufferOrEvent = gate.pollNext();
                 while (bufferOrEvent.isPresent()
                         && bufferOrEvent.get().getEvent() instanceof EndOfChannelStateEvent
@@ -305,7 +305,7 @@ public class CheckpointedInputGateTest {
             CheckpointedInputGate checkpointedInputGate, int channelIndex, Buffer buffer)
             throws IOException {
         Integer sequenceNumber =
-                channelIndexToSequenceNumber.compute(
+                channelIndexToSequenceNumber.compute(//以channelIndex作为key，获取旧值，这2个即为函数的2个参数，计算出新值，再重新put(channelIndex,新值)，并返回新值
                         channelIndex,
                         (key, oldSequence) -> oldSequence == null ? 0 : oldSequence + 1);
         ((RemoteInputChannel) checkpointedInputGate.getChannel(channelIndex))
@@ -322,7 +322,7 @@ public class CheckpointedInputGateTest {
                 new SingleInputGateBuilder()
                         .setBufferPoolFactory(
                                 networkBufferPool.createBufferPool(
-                                        numberOfChannels, Integer.MAX_VALUE))
+                                        numberOfChannels, Integer.MAX_VALUE)) //创建LocalBufferPool实例并返回
                         .setSegmentProvider(networkBufferPool)
                         .setChannelFactory(
                                 (builder, gate) ->

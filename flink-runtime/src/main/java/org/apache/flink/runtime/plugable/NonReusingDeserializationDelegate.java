@@ -47,7 +47,7 @@ public class NonReusingDeserializationDelegate<T> implements DeserializationDele
     public void write(DataOutputView out) throws IOException {
         throw new IllegalStateException("Serialization method called on DeserializationDelegate.");
     }
-
+//反序列化in里的一条记录（这个记录是什么类型，由serializer决定）并保存到instance里
     @Override
     public void read(DataInputView in) throws IOException {
         this.instance = this.serializer.deserialize(in);

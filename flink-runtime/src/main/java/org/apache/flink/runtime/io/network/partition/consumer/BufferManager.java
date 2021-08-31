@@ -52,13 +52,13 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class BufferManager implements BufferListener, BufferRecycler {
 
     /** The available buffer queue wraps both exclusive and requested floating buffers. */
-    private final AvailableBufferQueue bufferQueue = new AvailableBufferQueue();
+    private final AvailableBufferQueue bufferQueue = new AvailableBufferQueue();//存放从globalPool中申请的资源
 
     /** The buffer provider for requesting exclusive buffers. */
     private final MemorySegmentProvider globalPool;
 
     /** The input channel to own this buffer manager. */
-    private final InputChannel inputChannel;
+    private final InputChannel inputChannel;//此BufferManager所属的InputChannel
 
     /**
      * The tag indicates whether it is waiting for additional floating buffers from the buffer pool.
@@ -138,7 +138,7 @@ public class BufferManager implements BufferListener, BufferRecycler {
         if (numExclusiveBuffers == 0) {
             return;
         }
-
+//从globalPool申请numExclusiveBuffers个数量的MemorySegment，并需要重新分配给globalPool中的可用资源，如allBufferPools集合里的LocalBufferPool
         Collection<MemorySegment> segments = globalPool.requestMemorySegments(numExclusiveBuffers);
         synchronized (bufferQueue) {
             // AvailableBufferQueue::addExclusiveBuffer may release the previously allocated
@@ -394,10 +394,10 @@ public class BufferManager implements BufferListener, BufferRecycler {
     static final class AvailableBufferQueue {
 
         /** The current available floating buffers from the fixed buffer pool. */
-        final ArrayDeque<Buffer> floatingBuffers;
+        final ArrayDeque<Buffer> floatingBuffers;//我暂时理解 若floatingBuffers + exclusiveBuffers的大小 > numRequiredBuffers,则释放掉floatingBuffers
 
         /** The current available exclusive buffers from the global buffer pool. */
-        final ArrayDeque<Buffer> exclusiveBuffers;
+        final ArrayDeque<Buffer> exclusiveBuffers;//我暂时理解 这个是独有的资源
 
         AvailableBufferQueue() {
             this.exclusiveBuffers = new ArrayDeque<>();

@@ -19,7 +19,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.function.ThrowingRunnable;
-
+//这个比如有priorityevent时会被执行相应参数；相当于一个执行的容器，可以执行任何参数操作
 /** A mailbox executor that immediately executes code in the current thread. */
 public class SyncMailboxExecutor implements MailboxExecutor {
     @Override

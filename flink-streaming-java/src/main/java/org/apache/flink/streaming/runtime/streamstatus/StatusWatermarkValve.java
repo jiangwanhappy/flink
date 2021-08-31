@@ -33,7 +33,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * that the valve needs to handle, as well as provide a implementation of {@link DataOutput}, which
  * is called by the valve only when it determines a new watermark or stream status can be
  * propagated.
- */
+ *///记录所有inputchannel的状态，即InputChannelStatus，还有经过所有channel计算的watermark
 @Internal
 public class StatusWatermarkValve {
 
@@ -222,11 +222,11 @@ public class StatusWatermarkValve {
      *   <li>the stream status has resumed to be active, but the watermark of the channel hasn't
      *       caught up to the last output watermark from the valve yet.
      * </ul>
-     */
+     *///记录inputchannel的状态，如连接此channel的输入流的状态，watermark等
     @VisibleForTesting
     protected static class InputChannelStatus {
         protected long watermark;//此channel的watermark
-        protected StreamStatus streamStatus;
+        protected StreamStatus streamStatus;//此输入流的状态，是空闲状态idle还是有数据状态active
         protected boolean isWatermarkAligned;//当新的watermark赋值时，isWatermarkAligned为true
 //即当isWatermarkAligned为true时，watermark肯定大于lastOutputWatermark
         /**

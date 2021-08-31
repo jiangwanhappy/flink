@@ -333,10 +333,10 @@ final class NonSpanningWrapper implements DataInputView {
         segment.get(position, dst, remaining());
         clear();
     }
-
+    //反序列化this里的一条记录（这个记录是什么类型，由target的serializer决定）并保存到target的instance里
     DeserializationResult readInto(IOReadableWritable target) throws IOException {
         try {
-            target.read(this);
+            target.read(this);//反序列化this里的一条记录（这个记录是什么类型，由serializer决定）并保存到target的instance里
         } catch (IndexOutOfBoundsException e) {
             throw new IOException(BROKEN_SERIALIZATION_ERROR_MESSAGE, e);
         }
